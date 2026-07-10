@@ -1,0 +1,102 @@
+# Curiosity Learning — Admin
+
+Internal admin dashboard for Curiosity Learning, split out of the main app
+(`curiosity-learning-frontend-svelte`) into its own repo per the CEO's architecture decision:
+the admin dashboard is hosted separately, but shares the same Convex backend and auth as the
+main app.
+
+This repo has **no backend of its own**. All Convex functions used here (`admin.ts`,
+`moderation.ts`, `profiles.getMyGlobalRole`, `auth.ts`, schema, etc.) live in
+`curiosity-learning-frontend-svelte/src/convex/` and are deployed from that repo only. This app
+is a pure client of that shared Convex deployment.
+
+## Setup
+
+```bash
+npm install
+npm run sync-api        # copies the Convex generated API from the main repo (see below)
+cp .env.example .env    # fill in PUBLIC_CONVEX_URL / PUBLIC_CONVEX_SITE_URL
+npm run dev              # http://localhost:4174 (port is strict, matches trustedOrigins)
+```
+
+Sign in with an account whose profile has `globalRole: "admin"` set in the shared Convex
+deployment (the same one the main app uses).
+
+## Shared-backend architecture
+
+- **Convex backend**: shared with the main app. This repo does not run `convex dev`, does not
+  have a `convex/` folder of functions, and does not deploy anything to Convex.
+- **Auth**: shared better-auth + Convex session, same as the main app. See "How auth works"
+  below — this app performs authentication access **client-side only**, so it never uses
+  `BETTER_AUTH_SECRET` or the Google OAuth client secret; those remain in the main repo /
+  Convex deployment env only.
+- **Generated API types**: synced from the main repo via `npm run sync-api` (see below), not
+  generated locally.
+
+## How auth works
+
+The main app's SvelteKit server (`hooks.server.ts` + `+layout.server.ts`) reads the better-auth
+session cookie server-side (via `getToken(createAuth, cookies)`) to SSR-gate `/admin` and other
+routes. That requires importing the main repo's full `createAuth` (which pulls in the Convex
+functions module, email templates, etc.) — too heavy to duplicate here, and unnecessary for an
+admin tool.
+
+Instead, this app authenticates **entirely client-side**:
+
+- `src/routes/+layout.svelte` calls `createSvelteAuthClient({ authClient })` (no
+  `getServerState`), which uses `authClient.useSession()` + the Convex JWT exchange, exactly
+  like the main app's browser flow — just without the SSR fast-path.
+- `src/routes/admin/+layout.svelte` is the gate: it waits for `useAuth()` to resolve, then calls
+  `api.profiles.getMyGlobalRole` (a shared Convex query). Non-admins (or unauthenticated users)
+  see a plain "Not found", matching the main app's behavior of not advertising `/admin`'s
+  existence. Unauthenticated users are redirected to `/sign-in`.
+- Every admin Convex query/mutation still independently enforces `requireGlobalAdmin`
+  server-side (in the main repo) — the client-side gate here is a UX nicety only, same caveat as
+  the main app's server-side gate.
+
+This means: no `hooks.server.ts`, no `app.d.ts` `Locals.token`, no `BETTER_AUTH_SECRET` needed in
+this repo's `.env`. `authClient` (`src/lib/auth-client.ts`) only needs
+`convexClient()` from `@convex-dev/better-auth/client/plugins` — the member app's
+`emailOTP`/`username` client plugins aren't used since sign-in here is a simple email/password
+form for admins (who are ordinary users with `globalRole: "admin"`).
+
+**Origin allowlisting**: for the Convex JWT/session exchange to work, this app's origin
+(`http://localhost:4174` in dev) must be in the main repo's `trustedOrigins` list
+(`src/convex/auth.ts`) and pushed to the shared Convex deployment with `npx convex dev --once`.
+When this app is deployed, add its deployed origin there too.
+
+## sync-api mechanism
+
+`npm run sync-api` runs `scripts/sync-api.sh`, which copies
+`../curiosity-learning-frontend-svelte/src/convex/_generated` into this repo's
+`src/convex-api/_generated` (gitignored — always regenerate, never hand-edit). The `$convex`
+alias in `svelte.config.js` points at `src/convex-api`, so imports like
+`import { api } from '$convex/_generated/api'` resolve to the synced copy, matching the import
+style used in the main repo's admin pages.
+
+**Re-run `npm run sync-api` after any backend change in the main repo** (new/changed Convex
+queries/mutations, schema changes) — otherwise this app's `api` object and `Id<...>` types go
+stale. The script assumes this repo is checked out as a sibling directory of
+`curiosity-learning-frontend-svelte`.
+
+## i18n divergence
+
+The main app is internationalized (`$lib/i18n`); this admin app is **not** — it's an internal
+tool, so English strings are inlined directly in the ported pages instead of going through the
+translation layer. If the admin app ever needs i18n, port `$lib/i18n` from the main repo at that
+point.
+
+## Ron's TODOs
+
+- [ ] Create a GitHub remote for this repo and push (not done yet — this repo only has a local
+      git history).
+- [ ] Decide on hosting (Vercel, matching the main app's `adapter-vercel`, is the default
+      assumption baked into `svelte.config.js`) and set up the project there.
+- [ ] Once deployed, add the deployed origin to `trustedOrigins` in the main repo's
+      `src/convex/auth.ts` and push with `npx convex dev --once` (or set it via
+      `npx convex env set` / dashboard for production, depending on how `trustedOrigins` is
+      wired for prod).
+- [ ] Set `PUBLIC_ADMIN_URL` in the main app's env to this app's deployed URL, so the profile
+      page's "Admin" link appears for admins in production too (in dev it already points at
+      `http://localhost:4174`).
+- [ ] Consider whether this repo needs its own CI (lint/check) once it has a remote.

@@ -1,0 +1,111 @@
+@import 'tw-animate-css';
+@import 'tailwindcss';
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * CL-693/730 ported admin UI: minimal utilitarian theme, NOT the full member-app brand system
+ * (no custom fonts/textures). Only the shadcn-style semantic tokens the ported UI primitives
+ * (button/input/badge/dialog/textarea) need are defined here.
+ */
+:root {
+	--radius: 0.625rem;
+	--input-background: #ffffff;
+
+	--background: #f5f5f5;
+	--foreground: oklch(0.196 0.012 42.5);
+	--card: #ffffff;
+	--card-foreground: oklch(0.196 0.012 42.5);
+	--popover: #ffffff;
+	--popover-foreground: oklch(0.196 0.012 42.5);
+	--primary: oklch(0.595 0.179 40.5);
+	--primary-foreground: oklch(0.98 0.013 95.1);
+	--secondary: oklch(0.964 0.007 81.5);
+	--secondary-foreground: oklch(0.278 0.016 42.1);
+	--muted: oklch(0.951 0.009 81.9);
+	--muted-foreground: oklch(0.454 0.017 51.8);
+	--accent: oklch(0.903 0.062 76.4);
+	--accent-foreground: oklch(0.278 0.016 42.1);
+	--destructive: oklch(0.592 0.221 27.7);
+	--border: oklch(0.884 0.008 78.4);
+	--input: oklch(0.884 0.008 78.4);
+	--ring: oklch(0.595 0.179 40.5);
+
+	--text-type-body-large-size: 1rem;
+	--text-type-body-large-line: 1.5rem;
+	--text-type-body-default-size: 0.875rem;
+	--text-type-body-default-line: 1.5rem;
+	--text-type-body-small-size: 0.75rem;
+	--text-type-body-small-line: 1rem;
+	--text-type-heading-h6-size: 1rem;
+	--text-type-heading-h6-line: 1.5rem;
+}
+
+@theme inline {
+	--radius-sm: calc(var(--radius) - 4px);
+	--radius-md: calc(var(--radius) - 2px);
+	--radius-lg: var(--radius);
+	--radius-xl: calc(var(--radius) + 4px);
+
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+	--color-card: var(--card);
+	--color-card-foreground: var(--card-foreground);
+	--color-popover: var(--popover);
+	--color-popover-foreground: var(--popover-foreground);
+	--color-primary: var(--primary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-secondary: var(--secondary);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-muted: var(--muted);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-accent: var(--accent);
+	--color-accent-foreground: var(--accent-foreground);
+	--color-destructive: var(--destructive);
+	--color-border: var(--border);
+	--color-input: var(--input);
+	--color-input-background: var(--input-background);
+	--color-ring: var(--ring);
+}
+
+@layer base {
+	* {
+		@apply border-border outline-ring/50;
+	}
+
+	body {
+		@apply min-h-screen bg-background text-foreground antialiased;
+	}
+}
+
+@layer utilities {
+	.type-control {
+		font-size: var(--text-type-body-default-size);
+		line-height: var(--text-type-body-default-line);
+		font-weight: 500;
+	}
+
+	.type-label {
+		font-size: var(--text-type-body-small-size);
+		line-height: var(--text-type-body-small-line);
+		font-weight: 500;
+	}
+
+	.type-sm {
+		font-size: var(--text-type-body-small-size);
+		line-height: var(--text-type-body-small-line);
+		font-weight: 400;
+	}
+
+	.type-sm-bold {
+		font-size: var(--text-type-body-small-size);
+		line-height: var(--text-type-body-small-line);
+		font-weight: 700;
+	}
+
+	.type-h6-bold {
+		font-size: var(--text-type-heading-h6-size);
+		line-height: var(--text-type-heading-h6-line);
+		font-weight: 700;
+	}
+}
