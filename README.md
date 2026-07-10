@@ -60,6 +60,12 @@ this repo's `.env`. `authClient` (`src/lib/auth-client.ts`) only needs
 `emailOTP`/`username` client plugins aren't used since sign-in here is a simple email/password
 form for admins (who are ordinary users with `globalRole: "admin"`).
 
+One SvelteKit server route _is_ still needed: `src/routes/api/auth/[...all]/+server.ts`, ported
+verbatim from the main repo. `authClient` posts to same-origin `/api/auth/*` by default; this
+route is a thin, secret-free proxy (`createSvelteKitHandler()`) that forwards those requests to
+`PUBLIC_CONVEX_SITE_URL` (a public env var) — it holds no secrets and requires no `createAuth`
+import, so it doesn't reintroduce the heavy dependency described above.
+
 **Origin allowlisting**: for the Convex JWT/session exchange to work, this app's origin
 (`http://localhost:4174` in dev) must be in the main repo's `trustedOrigins` list
 (`src/convex/auth.ts`) and pushed to the shared Convex deployment with `npx convex dev --once`.
