@@ -3,6 +3,8 @@
 export const routes = {
 	signIn: '/sign-in',
 	admin: '/admin',
+	adminClubs: '/admin/clubs',
+	adminApplications: '/admin/applications',
 	adminModeration: '/admin/moderation',
 	adminSeasonsBooklet: '/admin/seasons-booklet',
 	adminUsers: '/admin/users'
