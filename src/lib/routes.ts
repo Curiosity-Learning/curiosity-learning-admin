@@ -7,5 +7,6 @@ export const routes = {
 	adminApplications: '/admin/applications',
 	adminModeration: '/admin/moderation',
 	adminSeasonsBooklet: '/admin/seasons-booklet',
-	adminUsers: '/admin/users'
+	adminUsers: '/admin/users',
+	adminAdmins: '/admin/admins'
 } as const;

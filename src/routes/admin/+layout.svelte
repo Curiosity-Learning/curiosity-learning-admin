@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import { api } from '$convex/_generated/api';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
+	import { useConvexClient } from 'convex-svelte';
 	import { useStableQuery } from '$lib/convex/use-stable-query.svelte';
 	import { routes } from '$lib/routes';
 	import { cn } from '$lib/utils';
@@ -23,6 +24,25 @@
 	let globalRole = $derived(roleResponse.data ?? null);
 	let isAdmin = $derived(globalRole === 'admin');
 
+	// Invite claim: a signed-in non-admin may hold a pending admin invite for their (verified)
+	// email. Try to claim it exactly once before concluding "not found" — if the claim grants,
+	// the reactive getMyGlobalRole query above flips isAdmin on its own. The mutation is
+	// self-scoped and admin-invite-gated server-side, so calling it for every non-admin is safe.
+	const convexClient = useConvexClient();
+	let claimState = $state<'idle' | 'pending' | 'done'>('idle');
+
+	$effect(() => {
+		if (auth.isLoading || !auth.isAuthenticated || roleResponse.isLoading) return;
+		if (isAdmin || claimState !== 'idle') return;
+		claimState = 'pending';
+		void convexClient
+			.mutation(api.adminInvites.claimAdminInvite, {})
+			.catch(() => undefined)
+			.finally(() => {
+				claimState = 'done';
+			});
+	});
+
 	$effect(() => {
 		if (auth.isLoading) return;
 		if (!auth.isAuthenticated) {
@@ -37,14 +57,15 @@
 		{ href: routes.adminApplications, label: 'Applications' },
 		{ href: routes.adminModeration, label: 'Moderation' },
 		{ href: routes.adminSeasonsBooklet, label: 'Seasons & Booklet' },
-		{ href: routes.adminUsers, label: 'Users' }
+		{ href: routes.adminUsers, label: 'Users' },
+		{ href: routes.adminAdmins, label: 'Admins' }
 	];
 
 	const isActive = (href: string) =>
 		href === routes.admin ? page.url.pathname === href : page.url.pathname.startsWith(href);
 </script>
 
-{#if auth.isLoading || (auth.isAuthenticated && roleResponse.isLoading)}
+{#if auth.isLoading || (auth.isAuthenticated && (roleResponse.isLoading || (!isAdmin && claimState !== 'done')))}
 	<div class="flex min-h-screen items-center justify-center text-sm text-neutral-500">Loading…</div>
 {:else if !auth.isAuthenticated}
 	<!-- Redirect effect above will navigate away. -->
