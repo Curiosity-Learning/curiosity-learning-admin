@@ -92,17 +92,33 @@ tool, so English strings are inlined directly in the ported pages instead of goi
 translation layer. If the admin app ever needs i18n, port `$lib/i18n` from the main repo at that
 point.
 
+## Admin access & invites
+
+Admin access is granted only through the admin-invite mechanism (main repo
+`src/convex/adminInvites.ts`):
+
+- An existing admin invites an email on **/admin/admins**; the invitee signs in (or creates an
+  account right on this portal, with email OTP verification) and is granted
+  `globalRole: "admin"` automatically when their verified email matches a pending invite.
+- Invites expire after 7 days, can be revoked while pending, and every invite row is kept as an
+  audit trail. Admins can remove other admins (never themselves — the platform can't reach zero
+  admins).
+- Bootstrapping the first admin on a fresh deployment (from the main repo checkout):
+  `npx convex run adminInvites:seedInvite '{"email": "person@example.com"}' [--prod]`
+
 ## Ron's TODOs
 
-- [ ] Create a GitHub remote for this repo and push (not done yet — this repo only has a local
-      git history).
-- [ ] Decide on hosting (Vercel, matching the main app's `adapter-vercel`, is the default
-      assumption baked into `svelte.config.js`) and set up the project there.
-- [ ] Once deployed, add the deployed origin to `trustedOrigins` in the main repo's
-      `src/convex/auth.ts` and push with `npx convex dev --once` (or set it via
-      `npx convex env set` / dashboard for production, depending on how `trustedOrigins` is
-      wired for prod).
-- [ ] Set `PUBLIC_ADMIN_URL` in the main app's env to this app's deployed URL, so the profile
-      page's "Admin" link appears for admins in production too (in dev it already points at
-      `http://localhost:4174`).
-- [ ] Consider whether this repo needs its own CI (lint/check) once it has a remote.
+- [x] Create a GitHub remote for this repo and push — done 2026-07-24:
+      https://github.com/Curiosity-Learning/curiosity-learning-admin (private).
+- [ ] Set up the Vercel project for this repo (`adapter-vercel` is already configured). Env
+      vars needed: `PUBLIC_CONVEX_URL` and `PUBLIC_CONVEX_SITE_URL` (same values as the main
+      app's production env). Root directory = repo root; no Convex deploy step — the backend
+      deploys from the main repo.
+- [ ] Once deployed, set `ADMIN_APP_ORIGIN` (e.g. `https://curiosity-learning-admin.vercel.app`
+      or the custom domain) as a **Convex production env var** in the main repo's deployment —
+      it feeds both `trustedOrigins` (auth) and the invite email's portal link. Dev already
+      trusts `http://localhost:4174`.
+- [ ] Set `PUBLIC_ADMIN_URL` in the main app's Vercel env to this app's deployed URL, so the
+      profile page's "Admin" link appears for admins in production too (in dev it already
+      points at `http://localhost:4174`).
+- [ ] Consider whether this repo needs its own CI (lint/check) now that it has a remote.
