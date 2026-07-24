@@ -75,14 +75,15 @@ When this app is deployed, add its deployed origin there too.
 
 `npm run sync-api` runs `scripts/sync-api.sh`, which copies
 `../curiosity-learning-frontend-svelte/src/convex/_generated` into this repo's
-`src/convex-api/_generated` (gitignored — always regenerate, never hand-edit). The `$convex`
+`src/convex-api/_generated` (committed — Vercel builds have no sibling main-repo checkout to
+sync from; regenerate via the script, never hand-edit). The `$convex`
 alias in `svelte.config.js` points at `src/convex-api`, so imports like
 `import { api } from '$convex/_generated/api'` resolve to the synced copy, matching the import
 style used in the main repo's admin pages.
 
-**Re-run `npm run sync-api` after any backend change in the main repo** (new/changed Convex
-queries/mutations, schema changes) — otherwise this app's `api` object and `Id<...>` types go
-stale. The script assumes this repo is checked out as a sibling directory of
+**Re-run `npm run sync-api` after any backend change in the main repo and commit the result**
+(new/changed Convex queries/mutations, schema changes) — otherwise this app's `api` object and
+`Id<...>` types go stale, locally and on Vercel. The script assumes this repo is checked out as a sibling directory of
 `curiosity-learning-frontend-svelte`.
 
 ## i18n divergence

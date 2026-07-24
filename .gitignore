@@ -25,5 +25,6 @@ Thumbs.db
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
-# Synced Convex API (regenerate with `npm run sync-api`)
-src/convex-api
+# Synced Convex API is COMMITTED (Vercel builds have no sibling main-repo checkout to sync
+# from). Refresh with `npm run sync-api` after backend changes in the main repo and commit
+# the result; never hand-edit.
