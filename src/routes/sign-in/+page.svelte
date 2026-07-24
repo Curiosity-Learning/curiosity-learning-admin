@@ -23,6 +23,7 @@
 	let password = $state('');
 	let otp = $state('');
 	let pending = $state(false);
+	let googlePending = $state(false);
 	let errorMessage = $state('');
 	let infoMessage = $state('');
 
@@ -127,6 +128,37 @@
 			errorMessage = err instanceof Error ? err.message : 'Verification failed.';
 		} finally {
 			pending = false;
+		}
+	};
+
+	// Google sign-in for admins whose account was created with Google in the member app (no
+	// password credential exists for them). callbackURL/errorCallbackURL are ABSOLUTE on this
+	// app's origin: the auth server's baseURL is the member app, so a relative path would
+	// bounce the OAuth return to the wrong origin. This origin must be in the backend's
+	// trustedOrigins (ADMIN_APP_ORIGIN / localhost:4174). Implicit sign-UP via Google is
+	// disabled server-side — invitees without any account use the create-account flow instead.
+	const signInWithGoogle = async () => {
+		errorMessage = '';
+		googlePending = true;
+		try {
+			const { data, error } = await authClient.signIn.social({
+				provider: 'google',
+				callbackURL: `${window.location.origin}${nextPath}`,
+				errorCallbackURL: `${window.location.origin}${routes.signIn}`
+			});
+			if (error) {
+				errorMessage = error.message ?? 'Google sign-in failed.';
+				return;
+			}
+			if (data?.url) {
+				window.location.href = data.url;
+				return;
+			}
+			errorMessage = 'Google sign-in could not start.';
+		} catch (err) {
+			errorMessage = err instanceof Error ? err.message : 'Google sign-in failed.';
+		} finally {
+			googlePending = false;
 		}
 	};
 
@@ -259,6 +291,23 @@
 						{mode === 'signIn' ? 'Sign in' : 'Create account'}
 					{/if}
 				</Button>
+
+				{#if mode === 'signIn'}
+					<div class="flex items-center gap-3">
+						<div class="h-px flex-1 bg-neutral-200"></div>
+						<span class="text-xs text-neutral-400">or</span>
+						<div class="h-px flex-1 bg-neutral-200"></div>
+					</div>
+					<Button
+						type="button"
+						variant="outline"
+						class="w-full"
+						disabled={googlePending}
+						onclick={() => void signInWithGoogle()}
+					>
+						{googlePending ? 'Redirecting…' : 'Sign in with Google'}
+					</Button>
+				{/if}
 
 				<button
 					type="button"
