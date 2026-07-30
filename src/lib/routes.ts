@@ -5,6 +5,8 @@ export const routes = {
 	admin: '/admin',
 	adminClubs: '/admin/clubs',
 	adminApplications: '/admin/applications',
+	adminApplication: (applicationId: string) => `/admin/applications/${applicationId}`,
+	adminInterest: '/admin/interest',
 	adminModeration: '/admin/moderation',
 	adminSeasonsBooklet: '/admin/seasons-booklet',
 	adminUsers: '/admin/users',
