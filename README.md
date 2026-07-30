@@ -71,6 +71,14 @@ import, so it doesn't reintroduce the heavy dependency described above.
 (`src/convex/auth.ts`) and pushed to the shared Convex deployment with `npx convex dev --once`.
 When this app is deployed, add its deployed origin there too.
 
+**Google OAuth needs cross-subdomain cookies in production**: Google always calls back on
+`BETTER_AUTH_URL`'s origin (the member app), so the Better Auth state cookie set through this
+app's `/api/auth` proxy — and the session cookie set during the callback — must be visible on
+both origins. The main repo's `src/convex/auth.ts` scopes auth cookies to `AUTH_COOKIE_DOMAIN`
+(a Convex env var, `.curiositylearning.org` in prod) to make that work; without it, Google
+sign-in started here dies with `state_mismatch` on the member app's `/api/auth/error` page.
+Localhost dev needs nothing — cookies ignore ports, so `:4174` and `:5173` already share them.
+
 ## sync-api mechanism
 
 `npm run sync-api` runs `scripts/sync-api.sh`, which copies
