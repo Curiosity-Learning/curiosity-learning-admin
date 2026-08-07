@@ -168,6 +168,19 @@
 				<section class="rounded-lg border border-neutral-300 bg-white p-4">
 					<h2 class="text-sm font-semibold text-neutral-600">Application</h2>
 					<dl class="mt-3 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-2 text-sm">
+						<dt class="text-neutral-500">Applicant email</dt>
+						<dd>
+							{#if detail.applicant?.email}
+								<a
+									class="underline-offset-2 hover:underline"
+									href={`mailto:${detail.applicant.email}`}
+								>
+									{detail.applicant.email}
+								</a>
+							{:else}
+								—
+							{/if}
+						</dd>
 						<dt class="text-neutral-500">Location</dt>
 						<dd>{detail.location ?? '—'}</dd>
 						<dt class="text-neutral-500">Applicant role</dt>
