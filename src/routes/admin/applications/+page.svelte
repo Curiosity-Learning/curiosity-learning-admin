@@ -83,7 +83,17 @@
 											{item.name}
 										</a>
 									</td>
-									<td class="px-3 py-2 text-neutral-600">{item.applicantName ?? '—'}</td>
+									<td class="px-3 py-2 text-neutral-600">
+										<p>{item.applicantName ?? '—'}</p>
+										{#if item.applicantEmail}
+											<a
+												class="text-xs text-neutral-500 underline-offset-2 hover:underline"
+												href={`mailto:${item.applicantEmail}`}
+											>
+												{item.applicantEmail}
+											</a>
+										{/if}
+									</td>
 									<td class="px-3 py-2 capitalize">{statusLabel[item.status]}</td>
 									<td class="px-3 py-2 text-neutral-600">{formatDate(item.createdAt)}</td>
 									<td class="px-3 py-2">{item.reviewCount}</td>
@@ -144,7 +154,17 @@
 											{item.name}
 										</a>
 									</td>
-									<td class="px-3 py-2 text-neutral-600">{item.applicantName ?? '—'}</td>
+									<td class="px-3 py-2 text-neutral-600">
+										<p>{item.applicantName ?? '—'}</p>
+										{#if item.applicantEmail}
+											<a
+												class="text-xs text-neutral-500 underline-offset-2 hover:underline"
+												href={`mailto:${item.applicantEmail}`}
+											>
+												{item.applicantEmail}
+											</a>
+										{/if}
+									</td>
 									<td class="px-3 py-2">
 										<Badge variant={item.status === 'accepted' ? 'secondary' : 'outline'}>
 											{statusLabel[item.status]}
