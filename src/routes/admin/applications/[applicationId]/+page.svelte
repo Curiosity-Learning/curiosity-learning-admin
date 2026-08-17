@@ -79,11 +79,20 @@
 
 	const sendMessage = async () => {
 		const content = draft.trim();
-		if (!content || !detail?.roomId) return;
+		if (!content || !detail) return;
 		chatError = '';
 		sendPending = true;
 		try {
-			await convexClient.mutation(api.chat.sendMessage, { roomId: detail.roomId, content });
+			// Incomplete applications have no room until someone starts the conversation — the
+			// first staff message creates it (idempotent), and the applicant's app picks it up
+			// automatically. detail.roomId then updates reactively via adminGetApplication.
+			let roomId = detail.roomId;
+			if (!roomId) {
+				({ roomId } = await convexClient.mutation(api.admin.adminEnsureApplicationRoom, {
+					applicationId
+				}));
+			}
+			await convexClient.mutation(api.chat.sendMessage, { roomId, content });
 			draft = '';
 		} catch (error) {
 			chatError = error instanceof Error ? error.message : 'Failed to send the message';
@@ -333,7 +342,8 @@
 				<div bind:this={messageListElement} class="flex-1 overflow-y-auto px-4 py-3">
 					{#if !detail.roomId}
 						<p class="py-8 text-center text-sm text-neutral-500">
-							No chat yet — the room is created when the application is submitted.
+							No chat yet — send a message to start the conversation. The applicant sees it in their
+							app, even before submitting.
 						</p>
 					{:else if messagesResponse.isLoading && messages.length === 0}
 						<p class="py-8 text-center text-sm text-neutral-500">Loading messages…</p>
@@ -385,8 +395,8 @@
 					<Textarea
 						class="min-h-10 flex-1 resize-none"
 						rows={1}
-						placeholder={detail.roomId ? 'Message the applicant…' : 'Chat not available yet'}
-						disabled={!detail.roomId || sendPending}
+						placeholder="Message the applicant…"
+						disabled={sendPending}
 						bind:value={draft}
 						onkeydown={(event: KeyboardEvent) => {
 							if (event.key === 'Enter' && !event.shiftKey) {
@@ -395,7 +405,7 @@
 							}
 						}}
 					/>
-					<Button type="submit" disabled={!detail.roomId || sendPending || !draft.trim()}>
+					<Button type="submit" disabled={sendPending || !draft.trim()}>
 						{sendPending ? 'Sending…' : 'Send'}
 					</Button>
 				</form>
