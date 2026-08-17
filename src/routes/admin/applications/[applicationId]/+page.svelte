@@ -21,6 +21,36 @@
 	const detailResponse = useStableQuery(api.admin.adminGetApplication, () => ({ applicationId }));
 	let detail = $derived(detailResponse.data ?? null);
 
+	// The video plays from a CloudFront-signed URL minted by the backend
+	// (clubApplicationsNode.getApplicationVideoSignedUrl) — the storage bucket is private, so a
+	// direct storage URL would 403. The signed URL lasts ≥2h (longer than any review session),
+	// so it is fetched once per application rather than refreshed.
+	let videoUrl = $state<string | null>(null);
+	let videoLoading = $state(false);
+	let videoError = $state('');
+	$effect(() => {
+		const id = applicationId;
+		const hasVideo = detail?.hasVideo ?? false;
+		videoUrl = null;
+		videoError = '';
+		if (!hasVideo) return;
+		videoLoading = true;
+		convexClient
+			.action(api.clubApplicationsNode.getApplicationVideoSignedUrl, { applicationId: id })
+			.then((result) => {
+				if (id !== applicationId) return;
+				videoUrl = result?.url ?? null;
+			})
+			.catch((error) => {
+				if (id !== applicationId) return;
+				videoError = error instanceof Error ? error.message : 'Failed to load the video';
+			})
+			.finally(() => {
+				if (id !== applicationId) return;
+				videoLoading = false;
+			});
+	});
+
 	// Own profile id aligns own messages to the right, like any chat client.
 	const meResponse = useStableQuery(api.profiles.getMe, {});
 	let myProfileId = $derived(meResponse.data?._id ?? null);
@@ -209,10 +239,15 @@
 
 				<section class="rounded-lg border border-neutral-300 bg-white p-4">
 					<h2 class="text-sm font-semibold text-neutral-600">Application video</h2>
-					{#if detail.videoUrl}
+					{#if videoUrl}
 						<!-- svelte-ignore a11y_media_has_caption -->
-						<video class="mt-3 w-full rounded" controls preload="metadata" src={detail.videoUrl}
-						></video>
+						<video class="mt-3 w-full rounded" controls preload="metadata" src={videoUrl}></video>
+					{:else if videoLoading}
+						<p class="mt-3 text-sm text-neutral-500">Loading video…</p>
+					{:else if videoError}
+						<p class="mt-3 rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
+							{videoError}
+						</p>
 					{:else}
 						<p class="mt-3 text-sm text-neutral-500">No video submitted (or not ready yet).</p>
 					{/if}
