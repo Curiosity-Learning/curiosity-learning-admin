@@ -18,7 +18,6 @@ import type * as chatModel from "../chatModel.js";
 import type * as childAccounts from "../childAccounts.js";
 import type * as childSignup from "../childSignup.js";
 import type * as clubApplications from "../clubApplications.js";
-import type * as clubApplicationsNode from "../clubApplicationsNode.js";
 import type * as clubScheduleSlots from "../clubScheduleSlots.js";
 import type * as clubs from "../clubs.js";
 import type * as cocModel from "../cocModel.js";
@@ -83,7 +82,6 @@ declare const fullApi: ApiFromModules<{
   childAccounts: typeof childAccounts;
   childSignup: typeof childSignup;
   clubApplications: typeof clubApplications;
-  clubApplicationsNode: typeof clubApplicationsNode;
   clubScheduleSlots: typeof clubScheduleSlots;
   clubs: typeof clubs;
   cocModel: typeof cocModel;
