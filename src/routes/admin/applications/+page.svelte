@@ -12,6 +12,10 @@
 	let pipeline = $derived(pipelineResponse.data ?? null);
 	let items = $derived(pipeline?.items ?? []);
 	let decidedItems = $derived(pipeline?.decidedItems ?? []);
+	// Decided applications' chats stay open, so replies can land there too — count both lists.
+	let awaitingReplyCount = $derived(
+		[...items, ...decidedItems].filter((item) => item.chatAwaitingReply).length
+	);
 
 	const statusLabel: Record<string, string> = {
 		incomplete: 'Incomplete',
@@ -34,6 +38,13 @@
 			Club application pipeline. Open an application to review it, decide, and chat with the
 			applicant.
 		</p>
+		{#if awaitingReplyCount > 0}
+			<p class="mt-2 text-sm font-medium text-neutral-900">
+				{awaitingReplyCount}
+				{awaitingReplyCount === 1 ? 'conversation is' : 'conversations are'} waiting for a reply — look
+				for the <Badge>Reply waiting</Badge> rows below.
+			</p>
+		{/if}
 	</div>
 
 	{#if pipelineResponse.isLoading}
@@ -66,6 +77,7 @@
 								<th class="px-3 py-2">Name</th>
 								<th class="px-3 py-2">Applicant</th>
 								<th class="px-3 py-2">Status</th>
+								<th class="px-3 py-2">Chat</th>
 								<th class="px-3 py-2">Created</th>
 								<th class="px-3 py-2">Reviews</th>
 								<th class="px-3 py-2">Avg score</th>
@@ -95,6 +107,17 @@
 										{/if}
 									</td>
 									<td class="px-3 py-2 capitalize">{statusLabel[item.status]}</td>
+									<td class="px-3 py-2">
+										{#if item.chatAwaitingReply}
+											<Badge>Reply waiting</Badge>
+										{:else if item.chatLastMessageAt}
+											<span class="text-xs text-neutral-500">
+												Last: {formatDate(item.chatLastMessageAt)}
+											</span>
+										{:else}
+											<span class="text-neutral-400">—</span>
+										{/if}
+									</td>
 									<td class="px-3 py-2 text-neutral-600">{formatDate(item.createdAt)}</td>
 									<td class="px-3 py-2">{item.reviewCount}</td>
 									<td class="px-3 py-2"
@@ -139,6 +162,7 @@
 								<th class="px-3 py-2">Applicant</th>
 								<th class="px-3 py-2">Decision</th>
 								<th class="px-3 py-2">Decided</th>
+								<th class="px-3 py-2">Chat</th>
 								<th class="px-3 py-2">Club</th>
 								<th class="px-3 py-2">Flags</th>
 							</tr>
@@ -172,6 +196,17 @@
 									</td>
 									<td class="px-3 py-2 text-neutral-600">
 										{item.decidedAt ? formatDate(item.decidedAt) : '—'}
+									</td>
+									<td class="px-3 py-2">
+										{#if item.chatAwaitingReply}
+											<Badge>Reply waiting</Badge>
+										{:else if item.chatLastMessageAt}
+											<span class="text-xs text-neutral-500">
+												Last: {formatDate(item.chatLastMessageAt)}
+											</span>
+										{:else}
+											<span class="text-neutral-400">—</span>
+										{/if}
 									</td>
 									<td class="px-3 py-2 text-neutral-600">{item.clubName ?? '—'}</td>
 									<td class="px-3 py-2">
