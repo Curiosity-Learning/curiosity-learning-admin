@@ -38,6 +38,32 @@
 	const itemKey = (item: (typeof queue)[number]) =>
 		item.kind === 'report' ? `report:${item.reportId}` : `media:${item.mediaAssetId}`;
 
+	// Signed preview URLs for flagged media (the media bucket is private — every URL must be
+	// CloudFront-signed, via the shared backend's moderationNode action). Keyed by asset id;
+	// 'loading' while the action is in flight, 'unavailable' when it returns null or throws.
+	let mediaPreviews = $state<Record<string, { url: string } | 'loading' | 'unavailable'>>({});
+
+	$effect(() => {
+		for (const item of queue) {
+			if (item.kind !== 'flagged_media' || mediaPreviews[item.mediaAssetId]) continue;
+			mediaPreviews[item.mediaAssetId] = 'loading';
+			convexClient
+				.action(api.moderationNode.getFlaggedMediaSignedUrl, { mediaAssetId: item.mediaAssetId })
+				.then((result) => {
+					mediaPreviews[item.mediaAssetId] = result ? { url: result.url } : 'unavailable';
+				})
+				.catch(() => {
+					mediaPreviews[item.mediaAssetId] = 'unavailable';
+				});
+		}
+	});
+
+	const formatBytes = (bytes: number) => {
+		if (bytes < 1024) return `${bytes} B`;
+		if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+		return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+	};
+
 	const runAction = async (key: string, fn: () => Promise<unknown>) => {
 		pendingKey = key;
 		errorMessage = '';
@@ -216,21 +242,69 @@
 							</div>
 						</div>
 					{:else}
+						{@const preview = mediaPreviews[item.mediaAssetId]}
 						<div class="flex items-start justify-between gap-3">
-							<div class="flex flex-col gap-1">
-								<div class="flex items-center gap-2">
-									<Badge variant="outline">flagged media</Badge>
-									<Badge variant="secondary">{item.mediaKind ?? 'unknown'}</Badge>
+							<div class="flex items-start gap-4">
+								<div
+									class="flex h-32 w-32 shrink-0 items-center justify-center overflow-hidden rounded border border-neutral-200 bg-neutral-50"
+								>
+									{#if preview === 'loading' || !preview}
+										<span class="text-xs text-neutral-400">Loading…</span>
+									{:else if preview === 'unavailable'}
+										<span class="px-2 text-center text-xs text-neutral-400">
+											Preview unavailable
+										</span>
+									{:else if item.mediaKind === 'video'}
+										<!-- svelte-ignore a11y_media_has_caption -->
+										<video src={preview.url} controls class="h-full w-full object-cover"></video>
+									{:else}
+										<a href={preview.url} target="_blank" rel="noopener noreferrer">
+											<img
+												src={preview.url}
+												alt="Flagged media"
+												class="h-32 w-32 object-cover"
+											/>
+										</a>
+									{/if}
 								</div>
-								<p class="text-sm text-neutral-700">Owner: {item.ownerUserId}</p>
-								{#if item.moderationLabels?.labels?.length}
-									<p class="text-xs text-neutral-500">
-										{item.moderationLabels.labels
-											.map((label: { name: string }) => label.name)
-											.join(', ')}
+								<div class="flex flex-col gap-1">
+									<div class="flex flex-wrap items-center gap-2">
+										<Badge variant="outline">flagged media</Badge>
+										<Badge variant="secondary">{item.mediaKind ?? 'unknown'}</Badge>
+										{#if item.status !== 'ready'}
+											<Badge variant="secondary">{item.status}</Badge>
+										{/if}
+									</div>
+									<p class="text-sm text-neutral-700">
+										Owner: <span class="font-medium">{item.ownerName}</span>
+										<span class="ml-1 font-mono text-xs text-neutral-400">{item.ownerUserId}</span>
 									</p>
-								{/if}
-								<p class="text-xs text-neutral-400">{new Date(item.createdAt).toLocaleString()}</p>
+									{#if item.moderationLabels?.labels?.length}
+										<div class="flex flex-wrap gap-1">
+											{#each item.moderationLabels.labels as label (label.name)}
+												<span
+													class="rounded bg-amber-50 px-1.5 py-0.5 text-xs text-amber-800"
+													title={label.parentName ? `Category: ${label.parentName}` : undefined}
+												>
+													{label.name}
+													{Math.round(label.confidence)}%
+												</span>
+											{/each}
+										</div>
+									{/if}
+									<p class="text-xs text-neutral-500">
+										{[
+											item.originalFilename,
+											item.contentType,
+											item.sizeBytes != null ? formatBytes(item.sizeBytes) : null
+										]
+											.filter(Boolean)
+											.join(' · ')}
+									</p>
+									<p class="text-xs text-neutral-400">
+										Uploaded {new Date(item.createdAt).toLocaleString()}
+									</p>
+								</div>
 							</div>
 							<div class="flex shrink-0 flex-col gap-2">
 								<Button
