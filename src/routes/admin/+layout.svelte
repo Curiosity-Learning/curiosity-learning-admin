@@ -55,6 +55,7 @@
 		{ href: routes.admin, label: 'Overview' },
 		{ href: routes.adminClubs, label: 'Clubs' },
 		{ href: routes.adminApplications, label: 'Applications' },
+		{ href: routes.adminLeaderInvites, label: 'Leader invites' },
 		{ href: routes.adminInterest, label: 'Interest' },
 		{ href: routes.adminModeration, label: 'Moderation' },
 		{ href: routes.adminSeasonsBooklet, label: 'Seasons & Booklet' },

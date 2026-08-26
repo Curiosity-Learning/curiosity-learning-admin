@@ -10,5 +10,6 @@ export const routes = {
 	adminModeration: '/admin/moderation',
 	adminSeasonsBooklet: '/admin/seasons-booklet',
 	adminUsers: '/admin/users',
-	adminAdmins: '/admin/admins'
+	adminAdmins: '/admin/admins',
+	adminLeaderInvites: '/admin/leader-invites'
 } as const;
