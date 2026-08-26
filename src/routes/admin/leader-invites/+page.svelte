@@ -6,6 +6,9 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Input } from '$lib/components/ui/input';
 	import { Textarea } from '$lib/components/ui/textarea';
+	import LocationAutocomplete from '$lib/components/app/location-autocomplete.svelte';
+	import type { MapboxCoordinates } from '$lib/maps/mapbox';
+	import { env } from '$env/dynamic/public';
 	import type { Id } from '$convex/_generated/dataModel';
 
 	// Leader invites (main repo src/convex/clubLeaderInvites.ts): onboard someone who already
@@ -17,11 +20,12 @@
 	const invitesResponse = useStableQuery(api.clubLeaderInvites.listLeaderInvites, () => ({}));
 	let invites = $derived(invitesResponse.data ?? []);
 
+	const mapboxAccessToken = env.PUBLIC_MAPBOX_ACCESS_TOKEN ?? '';
+
 	let email = $state('');
 	let clubName = $state('');
 	let clubLocation = $state('');
-	let clubLatitude = $state('');
-	let clubLongitude = $state('');
+	let clubCoordinates = $state<MapboxCoordinates | null>(null);
 	let clubDescription = $state('');
 	let invitePending = $state(false);
 	let inviteError = $state('');
@@ -30,41 +34,24 @@
 	let actionError = $state('');
 	let pendingInviteId = $state<Id<'clubLeaderInvites'> | null>(null);
 
-	const parseCoordinate = (value: string, label: string, min: number, max: number) => {
-		const trimmed = value.trim();
-		if (!trimmed) return undefined;
-		const parsed = Number(trimmed);
-		if (!Number.isFinite(parsed) || parsed < min || parsed > max) {
-			throw new Error(`${label} must be a number between ${min} and ${max}`);
-		}
-		return parsed;
-	};
-
 	const sendInvite = async () => {
 		inviteError = '';
 		inviteInfo = '';
 		invitePending = true;
 		try {
-			const latitude = parseCoordinate(clubLatitude, 'Latitude', -90, 90);
-			const longitude = parseCoordinate(clubLongitude, 'Longitude', -180, 180);
-			// Coordinates place the club on the public map; either both or neither.
-			if ((latitude === undefined) !== (longitude === undefined)) {
-				throw new Error('Provide both latitude and longitude, or neither');
-			}
 			await convexClient.mutation(api.clubLeaderInvites.createLeaderInvite, {
 				email: email.trim(),
 				clubName: clubName.trim(),
 				clubDescription: clubDescription.trim() || undefined,
 				clubLocation: clubLocation.trim() || undefined,
-				clubLocationLatitude: latitude,
-				clubLocationLongitude: longitude
+				clubLocationLatitude: clubCoordinates?.latitude,
+				clubLocationLongitude: clubCoordinates?.longitude
 			});
 			inviteInfo = `Invite sent to ${email.trim().toLowerCase()} — "${clubName.trim()}" will be created when they sign up with that email.`;
 			email = '';
 			clubName = '';
 			clubLocation = '';
-			clubLatitude = '';
-			clubLongitude = '';
+			clubCoordinates = null;
 			clubDescription = '';
 		} catch (error) {
 			inviteError = error instanceof Error ? error.message : 'Failed to create the invite';
@@ -127,28 +114,22 @@
 					aria-label="Club name"
 				/>
 			</div>
-			<Input
-				bind:value={clubLocation}
-				placeholder="Location (e.g. Braga, Portugal)"
-				aria-label="Club location"
-			/>
-			<div class="grid grid-cols-2 gap-3">
-				<Input
-					bind:value={clubLatitude}
-					inputmode="decimal"
-					placeholder="Latitude (optional)"
-					aria-label="Latitude"
+			<div>
+				<LocationAutocomplete
+					id="leader-invite-location"
+					bind:value={clubLocation}
+					bind:coordinates={clubCoordinates}
+					accessToken={mapboxAccessToken}
+					placeholder="Location (e.g. Braga, Portugal)"
+					ariaLabel="Club location"
 				/>
-				<Input
-					bind:value={clubLongitude}
-					inputmode="decimal"
-					placeholder="Longitude (optional)"
-					aria-label="Longitude"
-				/>
+				{#if !mapboxAccessToken}
+					<p class="mt-1 text-xs text-amber-700">
+						PUBLIC_MAPBOX_ACCESS_TOKEN is not set, so location suggestions are unavailable —
+						the location will be saved as plain text without a map position.
+					</p>
+				{/if}
 			</div>
-			<p class="text-xs text-neutral-500">
-				Coordinates place the club on the public map; they can also be added later in the app.
-			</p>
 			<Textarea
 				bind:value={clubDescription}
 				rows={3}
