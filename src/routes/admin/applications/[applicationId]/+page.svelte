@@ -101,6 +101,64 @@
 		}
 	};
 
+	// Chat participants (applicationSupportGuides in the main repo): staff can attach any user —
+	// typically a regional Guide acting as interviewer/onboarding contact — to this application's
+	// chat without a review row. They get read/send access and the room appears in their chat list.
+	let guideSearch = $state('');
+	const guideSearchResponse = useStableQuery(api.moderation.searchUsers, () =>
+		guideSearch.trim() ? { usernamePrefix: guideSearch.trim() } : 'skip'
+	);
+	type UserSearchResult = {
+		profileId: Id<'profiles'>;
+		firstName: string | null;
+		lastName: string | null;
+		username: string | null;
+	};
+	let guideResults = $derived(
+		guideSearch.trim()
+			? ((guideSearchResponse.data ?? []) as UserSearchResult[]).filter(
+					(candidate) =>
+						candidate.profileId !== detail?.applicant?.profileId &&
+						!(detail?.supportGuides ?? []).some(
+							(guide: { profileId: Id<'profiles'> }) => guide.profileId === candidate.profileId
+						)
+				)
+			: []
+	);
+	let participantPending = $state(false);
+	let participantError = $state('');
+
+	const addSupportGuide = async (profileId: Id<'profiles'>) => {
+		participantError = '';
+		participantPending = true;
+		try {
+			await convexClient.mutation(api.admin.adminAddApplicationSupportGuide, {
+				applicationId,
+				profileId
+			});
+			guideSearch = '';
+		} catch (error) {
+			participantError = error instanceof Error ? error.message : 'Failed to add to the chat';
+		} finally {
+			participantPending = false;
+		}
+	};
+
+	const removeSupportGuide = async (profileId: Id<'profiles'>) => {
+		participantError = '';
+		participantPending = true;
+		try {
+			await convexClient.mutation(api.admin.adminRemoveApplicationSupportGuide, {
+				applicationId,
+				profileId
+			});
+		} catch (error) {
+			participantError = error instanceof Error ? error.message : 'Failed to remove from the chat';
+		} finally {
+			participantPending = false;
+		}
+	};
+
 	let actionError = $state('');
 	let actionPending = $state(false);
 
@@ -285,6 +343,76 @@
 								</li>
 							{/each}
 						</ul>
+					{/if}
+				</section>
+
+				<section class="rounded-lg border border-neutral-300 bg-white p-4">
+					<h2 class="text-sm font-semibold text-neutral-600">
+						Chat participants ({detail.supportGuides.length})
+					</h2>
+					<p class="mt-1 text-sm text-neutral-500">
+						Add a guide (e.g. the interviewer or onboarding contact) to this application's chat.
+						They can read and reply from their own chat list in the app.
+					</p>
+					{#if detail.supportGuides.length > 0}
+						<ul class="mt-3 flex flex-col gap-2">
+							{#each detail.supportGuides as guide (guide.profileId)}
+								<li
+									class="flex items-center justify-between gap-2 rounded border border-neutral-200 px-3 py-2 text-sm"
+								>
+									<span class="min-w-0 truncate">
+										{guide.name}{guide.username ? ` (@${guide.username})` : ''}
+									</span>
+									<Button
+										variant="outline"
+										size="sm"
+										disabled={participantPending}
+										onclick={() => void removeSupportGuide(guide.profileId)}
+									>
+										Remove
+									</Button>
+								</li>
+							{/each}
+						</ul>
+					{/if}
+					<div class="mt-3">
+						<input
+							class="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm"
+							placeholder="Search by username to add…"
+							bind:value={guideSearch}
+							aria-label="Search users to add to the chat"
+						/>
+						{#if guideSearch.trim() && !guideSearchResponse.isLoading && guideResults.length === 0}
+							<p class="mt-2 text-sm text-neutral-500">No matching users.</p>
+						{:else if guideResults.length > 0}
+							<ul class="mt-2 flex flex-col gap-1">
+								{#each guideResults as candidate (candidate.profileId)}
+									<li
+										class="flex items-center justify-between gap-2 rounded border border-neutral-200 px-3 py-2 text-sm"
+									>
+										<span class="min-w-0 truncate">
+											{[candidate.firstName, candidate.lastName].filter(Boolean).join(' ') ||
+												candidate.username ||
+												'Unnamed'}{candidate.username ? ` (@${candidate.username})` : ''}
+										</span>
+										<Button
+											size="sm"
+											disabled={participantPending}
+											onclick={() => void addSupportGuide(candidate.profileId)}
+										>
+											Add
+										</Button>
+									</li>
+								{/each}
+							</ul>
+						{/if}
+					</div>
+					{#if participantError}
+						<p
+							class="mt-3 rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700"
+						>
+							{participantError}
+						</p>
 					{/if}
 				</section>
 
