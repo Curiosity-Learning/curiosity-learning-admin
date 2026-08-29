@@ -101,9 +101,11 @@
 		}
 	};
 
-	// Chat participants (applicationSupportGuides in the main repo): staff can attach any user —
-	// typically a regional Guide acting as interviewer/onboarding contact — to this application's
-	// chat without a review row. They get read/send access and the room appears in their chat list.
+	// Reviewer assignment (applicationReviewAssignments in the main repo — the same rows the
+	// auto-assignment cron creates). Per PRD 6.11, assigned reviewers/interviewers are the
+	// application chat's guide-side participants, so assigning someone here also puts the chat
+	// in their chat list. Primary use: attaching an interviewer to an invited leader's
+	// application, which auto-assignment never touches.
 	let guideSearch = $state('');
 	const guideSearchResponse = useStableQuery(api.moderation.searchUsers, () =>
 		guideSearch.trim() ? { usernamePrefix: guideSearch.trim() } : 'skip'
@@ -119,8 +121,9 @@
 			? ((guideSearchResponse.data ?? []) as UserSearchResult[]).filter(
 					(candidate) =>
 						candidate.profileId !== detail?.applicant?.profileId &&
-						!(detail?.supportGuides ?? []).some(
-							(guide: { profileId: Id<'profiles'> }) => guide.profileId === candidate.profileId
+						!(detail?.assignedReviewers ?? []).some(
+							(reviewer: { profileId: Id<'profiles'> }) =>
+								reviewer.profileId === candidate.profileId
 						)
 				)
 			: []
@@ -128,32 +131,32 @@
 	let participantPending = $state(false);
 	let participantError = $state('');
 
-	const addSupportGuide = async (profileId: Id<'profiles'>) => {
+	const assignReviewer = async (profileId: Id<'profiles'>) => {
 		participantError = '';
 		participantPending = true;
 		try {
-			await convexClient.mutation(api.admin.adminAddApplicationSupportGuide, {
+			await convexClient.mutation(api.admin.adminAssignReviewer, {
 				applicationId,
 				profileId
 			});
 			guideSearch = '';
 		} catch (error) {
-			participantError = error instanceof Error ? error.message : 'Failed to add to the chat';
+			participantError = error instanceof Error ? error.message : 'Failed to assign the reviewer';
 		} finally {
 			participantPending = false;
 		}
 	};
 
-	const removeSupportGuide = async (profileId: Id<'profiles'>) => {
+	const unassignReviewer = async (profileId: Id<'profiles'>) => {
 		participantError = '';
 		participantPending = true;
 		try {
-			await convexClient.mutation(api.admin.adminRemoveApplicationSupportGuide, {
+			await convexClient.mutation(api.admin.adminUnassignReviewer, {
 				applicationId,
 				profileId
 			});
 		} catch (error) {
-			participantError = error instanceof Error ? error.message : 'Failed to remove from the chat';
+			participantError = error instanceof Error ? error.message : 'Failed to unassign the reviewer';
 		} finally {
 			participantPending = false;
 		}
@@ -348,29 +351,36 @@
 
 				<section class="rounded-lg border border-neutral-300 bg-white p-4">
 					<h2 class="text-sm font-semibold text-neutral-600">
-						Chat participants ({detail.supportGuides.length})
+						Assigned reviewers ({detail.assignedReviewers.length})
 					</h2>
 					<p class="mt-1 text-sm text-neutral-500">
-						Add a guide (e.g. the interviewer or onboarding contact) to this application's chat.
-						They can read and reply from their own chat list in the app.
+						Assigned reviewers conduct the interview and are the application chat's participants
+						alongside the applicant. Reviewers who already submitted scores can't be unassigned.
 					</p>
-					{#if detail.supportGuides.length > 0}
+					{#if detail.assignedReviewers.length > 0}
 						<ul class="mt-3 flex flex-col gap-2">
-							{#each detail.supportGuides as guide (guide.profileId)}
+							{#each detail.assignedReviewers as reviewer (reviewer.profileId)}
 								<li
 									class="flex items-center justify-between gap-2 rounded border border-neutral-200 px-3 py-2 text-sm"
 								>
-									<span class="min-w-0 truncate">
-										{guide.name}{guide.username ? ` (@${guide.username})` : ''}
+									<span class="flex min-w-0 items-center gap-2">
+										<span class="min-w-0 truncate">
+											{reviewer.name}{reviewer.username ? ` (@${reviewer.username})` : ''}
+										</span>
+										{#if reviewer.hasReviewed}
+											<Badge variant="secondary">reviewed</Badge>
+										{/if}
 									</span>
-									<Button
-										variant="outline"
-										size="sm"
-										disabled={participantPending}
-										onclick={() => void removeSupportGuide(guide.profileId)}
-									>
-										Remove
-									</Button>
+									{#if !reviewer.hasReviewed}
+										<Button
+											variant="outline"
+											size="sm"
+											disabled={participantPending}
+											onclick={() => void unassignReviewer(reviewer.profileId)}
+										>
+											Unassign
+										</Button>
+									{/if}
 								</li>
 							{/each}
 						</ul>
@@ -378,9 +388,9 @@
 					<div class="mt-3">
 						<input
 							class="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm"
-							placeholder="Search by username to add…"
+							placeholder="Search by username to assign…"
 							bind:value={guideSearch}
-							aria-label="Search users to add to the chat"
+							aria-label="Search users to assign as reviewer"
 						/>
 						{#if guideSearch.trim() && !guideSearchResponse.isLoading && guideResults.length === 0}
 							<p class="mt-2 text-sm text-neutral-500">No matching users.</p>
@@ -398,9 +408,9 @@
 										<Button
 											size="sm"
 											disabled={participantPending}
-											onclick={() => void addSupportGuide(candidate.profileId)}
+											onclick={() => void assignReviewer(candidate.profileId)}
 										>
-											Add
+											Assign
 										</Button>
 									</li>
 								{/each}
