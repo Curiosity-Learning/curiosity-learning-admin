@@ -3,6 +3,7 @@
 export const routes = {
 	signIn: '/sign-in',
 	admin: '/admin',
+	adminAnalytics: '/admin/analytics',
 	adminClubs: '/admin/clubs',
 	adminApplications: '/admin/applications',
 	adminApplication: (applicationId: string) => `/admin/applications/${applicationId}`,

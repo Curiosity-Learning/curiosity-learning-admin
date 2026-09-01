@@ -87,9 +87,9 @@
 	<section>
 		<h2 class="text-base font-semibold text-neutral-900">Invite a club leader</h2>
 		<p class="mt-1 text-sm text-neutral-500">
-			For people who already run a club: fill in their club, and it is created the moment they
-			sign up on the app with this exact email address — no application needed. Invites expire
-			after 30 days.
+			For people who already run a club: fill in their club, and it is created the moment they sign
+			up on the app with this exact email address — no application needed. Invites expire after 30
+			days.
 		</p>
 
 		<form
@@ -107,12 +107,7 @@
 					placeholder="leader@example.com"
 					aria-label="Leader's email"
 				/>
-				<Input
-					bind:value={clubName}
-					required
-					placeholder="Club name"
-					aria-label="Club name"
-				/>
+				<Input bind:value={clubName} required placeholder="Club name" aria-label="Club name" />
 			</div>
 			<div>
 				<LocationAutocomplete
@@ -125,8 +120,8 @@
 				/>
 				{#if !mapboxAccessToken}
 					<p class="mt-1 text-xs text-amber-700">
-						PUBLIC_MAPBOX_ACCESS_TOKEN is not set, so location suggestions are unavailable —
-						the location will be saved as plain text without a map position.
+						PUBLIC_MAPBOX_ACCESS_TOKEN is not set, so location suggestions are unavailable — the
+						location will be saved as plain text without a map position.
 					</p>
 				{/if}
 			</div>

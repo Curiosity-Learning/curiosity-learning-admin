@@ -259,11 +259,7 @@
 										<video src={preview.url} controls class="h-full w-full object-cover"></video>
 									{:else}
 										<a href={preview.url} target="_blank" rel="noopener noreferrer">
-											<img
-												src={preview.url}
-												alt="Flagged media"
-												class="h-32 w-32 object-cover"
-											/>
+											<img src={preview.url} alt="Flagged media" class="h-32 w-32 object-cover" />
 										</a>
 									{/if}
 								</div>

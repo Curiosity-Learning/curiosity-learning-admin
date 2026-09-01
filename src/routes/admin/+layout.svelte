@@ -53,6 +53,7 @@
 
 	const navItems = [
 		{ href: routes.admin, label: 'Overview' },
+		{ href: routes.adminAnalytics, label: 'Analytics' },
 		{ href: routes.adminClubs, label: 'Clubs' },
 		{ href: routes.adminApplications, label: 'Applications' },
 		{ href: routes.adminLeaderInvites, label: 'Leader invites' },
@@ -76,28 +77,30 @@
 		Not found
 	</div>
 {:else}
-	<div class="min-h-screen bg-neutral-100 text-neutral-900">
-		<header class="border-b border-neutral-300 bg-white">
-			<div class="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-				<p class="text-lg font-semibold">Curiosity Admin</p>
-				<nav class="flex gap-1">
-					{#each navItems as item (item.href)}
-						<a
-							href={item.href}
-							class={cn(
-								'rounded px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900',
-								isActive(item.href) && 'bg-neutral-200 text-neutral-900'
-							)}
-						>
-							{item.label}
-						</a>
-					{/each}
-				</nav>
-			</div>
-		</header>
+	<div class="flex min-h-screen flex-col bg-neutral-100 text-neutral-900 md:flex-row">
+		<aside
+			class="border-b border-neutral-300 bg-white md:sticky md:top-0 md:h-screen md:w-56 md:shrink-0 md:border-r md:border-b-0"
+		>
+			<p class="px-4 py-3 text-lg font-semibold md:py-4">Curiosity Admin</p>
+			<nav class="flex flex-wrap gap-1 px-3 pb-3 md:flex-col md:pb-0">
+				{#each navItems as item (item.href)}
+					<a
+						href={item.href}
+						class={cn(
+							'rounded px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900',
+							isActive(item.href) && 'bg-neutral-200 text-neutral-900'
+						)}
+					>
+						{item.label}
+					</a>
+				{/each}
+			</nav>
+		</aside>
 
-		<main class="mx-auto max-w-5xl px-4 py-6">
-			{@render children()}
+		<main class="min-w-0 flex-1">
+			<div class="mx-auto max-w-5xl px-4 py-6">
+				{@render children()}
+			</div>
 		</main>
 	</div>
 {/if}
