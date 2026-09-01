@@ -53,6 +53,7 @@
 
 	const navItems = [
 		{ href: routes.admin, label: 'Overview' },
+		{ href: routes.adminAnalytics, label: 'Analytics' },
 		{ href: routes.adminClubs, label: 'Clubs' },
 		{ href: routes.adminApplications, label: 'Applications' },
 		{ href: routes.adminLeaderInvites, label: 'Leader invites' },
