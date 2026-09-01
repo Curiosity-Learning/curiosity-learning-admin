@@ -48,7 +48,8 @@ const normalizeLabel = (feature: MapboxFeature) => {
 	if (parts.length === 0) return null;
 
 	const deduped = parts.filter(
-		(part, index) => parts.findIndex((value) => value.toLowerCase() === part.toLowerCase()) === index
+		(part, index) =>
+			parts.findIndex((value) => value.toLowerCase() === part.toLowerCase()) === index
 	);
 	return deduped.join(', ');
 };

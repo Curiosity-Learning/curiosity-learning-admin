@@ -25,7 +25,8 @@
 		{
 			label: 'Feedback completion',
 			value:
-				overview?.feedbackCompletionPercent === null || overview?.feedbackCompletionPercent === undefined
+				overview?.feedbackCompletionPercent === null ||
+				overview?.feedbackCompletionPercent === undefined
 					? undefined
 					: `${overview.feedbackCompletionPercent}%`,
 			href: null

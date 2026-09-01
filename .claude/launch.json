@@ -11,7 +11,12 @@
 		{
 			"name": "member-app",
 			"runtimeExecutable": "npm",
-			"runtimeArgs": ["run", "dev", "--prefix", "/Users/ronberlinski/Documents/curiosity-learning-frontend-svelte"],
+			"runtimeArgs": [
+				"run",
+				"dev",
+				"--prefix",
+				"/Users/ronberlinski/Documents/curiosity-learning-frontend-svelte"
+			],
 			"port": 5173
 		}
 	]

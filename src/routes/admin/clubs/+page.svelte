@@ -34,7 +34,10 @@
 			new Map(
 				rows
 					.filter((row: Row) => row.cocGroupId)
-					.map((row: Row) => [row.cocGroupId as string, row.cocGroupName ?? (row.cocGroupId as string)])
+					.map((row: Row) => [
+						row.cocGroupId as string,
+						row.cocGroupName ?? (row.cocGroupId as string)
+					])
 			).entries()
 		)
 	);
@@ -131,10 +134,7 @@
 	<div class="flex flex-wrap items-end gap-3">
 		<label class="flex flex-col gap-1 text-xs text-neutral-500">
 			Status
-			<select
-				bind:value={statusFilter}
-				class="rounded border border-neutral-300 px-2 py-1 text-sm"
-			>
+			<select bind:value={statusFilter} class="rounded border border-neutral-300 px-2 py-1 text-sm">
 				<option value="all">All</option>
 				<option value="active">Active</option>
 				<option value="abandoned">Abandoned</option>
@@ -172,7 +172,9 @@
 	{#if rowsResponse.isLoading}
 		<p class="text-sm text-neutral-500">Loading...</p>
 	{:else if sortedRows.length === 0}
-		<p class="rounded border border-neutral-200 bg-white px-4 py-6 text-center text-sm text-neutral-500">
+		<p
+			class="rounded border border-neutral-200 bg-white px-4 py-6 text-center text-sm text-neutral-500"
+		>
 			No clubs match these filters.
 		</p>
 	{:else}
@@ -224,12 +226,18 @@
 							<td class="px-3 py-2">{formatPercent(row.attendanceRate)}</td>
 							<td class="px-3 py-2">{row.activeProjectCount}</td>
 							<td class="px-3 py-2">{formatDate(row.lastActivityAt)}</td>
-							<td class="px-3 py-2">{row.qualityRating === null ? '—' : row.qualityRating.toFixed(1)}</td>
+							<td class="px-3 py-2"
+								>{row.qualityRating === null ? '—' : row.qualityRating.toFixed(1)}</td
+							>
 							<td class="px-3 py-2 capitalize">{row.status}</td>
 							<td class="px-3 py-2">
 								<div class="flex flex-wrap gap-1">
 									{#each row.flags as flag (flag)}
-										<Badge variant={flag === 'low_quality' || flag === 'abandoned' ? 'destructive' : 'secondary'}>
+										<Badge
+											variant={flag === 'low_quality' || flag === 'abandoned'
+												? 'destructive'
+												: 'secondary'}
+										>
 											{flagLabel[flag] ?? flag}
 										</Badge>
 									{/each}

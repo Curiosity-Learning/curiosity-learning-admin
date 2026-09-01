@@ -418,9 +418,7 @@
 						{/if}
 					</div>
 					{#if participantError}
-						<p
-							class="mt-3 rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700"
-						>
+						<p class="mt-3 rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
 							{participantError}
 						</p>
 					{/if}

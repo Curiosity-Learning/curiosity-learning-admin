@@ -179,7 +179,9 @@
 	{#if activitiesResponse.isLoading}
 		<p class="text-sm text-neutral-500">Loading...</p>
 	{:else if activities.length === 0}
-		<p class="rounded border border-neutral-200 bg-white px-4 py-6 text-center text-sm text-neutral-500">
+		<p
+			class="rounded border border-neutral-200 bg-white px-4 py-6 text-center text-sm text-neutral-500"
+		>
 			No booklet activities yet.
 		</p>
 	{:else}
