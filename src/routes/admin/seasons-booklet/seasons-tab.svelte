@@ -1,6 +1,12 @@
 <script lang="ts">
-	// PRD 6.14.5 (CL-701): seasons table + create/edit dialogs. No delete — seasons drive history
+	// PRD 6.14.5 (CL-701): seasons table + create/edit dialog. No delete — seasons drive history
 	// and are permanent by design (season transitions never reset or delete other data).
+	//
+	// CL-770 (Ron, 2026-11-05): seasons are planned in calendar DATES only. The backend
+	// (seasons.adminSaveSeason) turns each date into its official moment: closing dates are 23:55
+	// GMT that day, the season start is 00:00 GMT. Scoring opens the moment applications close, so
+	// there is no "review open" input. People apply all year; a season's applications open when
+	// the previous season's close.
 	import { api } from '$convex/_generated/api';
 	import { useConvexClient } from 'convex-svelte';
 	import { useStableQuery } from '$lib/convex/use-stable-query.svelte';
@@ -12,6 +18,7 @@
 	type SeasonRow = {
 		_id: Id<'seasons'>;
 		name: string;
+		applicationDeadline?: number;
 		startDate: number;
 		endDate: number;
 		reviewWindowOpen: number;
@@ -24,148 +31,137 @@
 
 	const convexClient = useConvexClient();
 
-	// datetime-local inputs work with "YYYY-MM-DDTHH:mm" local-time strings; seasons store
-	// absolute ms timestamps, so we convert both ways at the edges only.
-	const toLocalInputValue = (ms: number) => {
-		const date = new Date(ms);
-		const pad = (n: number) => String(n).padStart(2, '0');
-		return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-	};
-	const fromLocalInputValue = (value: string) => (value ? new Date(value).getTime() : NaN);
+	// Stored moments are GMT-based, so their calendar date is read in UTC.
+	const toDateInputValue = (ms: number | undefined) =>
+		ms === undefined ? '' : new Date(ms).toISOString().slice(0, 10);
+	const formatDate = (ms: number | undefined) =>
+		ms === undefined
+			? '—'
+			: new Date(ms).toLocaleDateString('en-GB', {
+					day: 'numeric',
+					month: 'short',
+					year: 'numeric',
+					timeZone: 'UTC'
+				});
 
 	type FormState = {
 		name: string;
+		applicationDeadline: string;
+		reviewWindowClose: string;
 		startDate: string;
 		endDate: string;
-		reviewWindowOpen: string;
-		reviewWindowClose: string;
 		feedbackDeadline: string;
 	};
 
+	const fields: Array<{ key: Exclude<keyof FormState, 'name'>; label: string; hint: string }> = [
+		{
+			key: 'applicationDeadline',
+			label: 'Applications close',
+			hint: 'Until 23:55 GMT. The next season’s applications open at that moment.'
+		},
+		{
+			key: 'reviewWindowClose',
+			label: 'Scoring deadline',
+			hint: 'Guides score from when applications close until 23:55 GMT on this date.'
+		},
+		{
+			key: 'startDate',
+			label: 'Season starts',
+			hint: 'The training weekend. Interviews have to be done before it.'
+		},
+		{ key: 'endDate', label: 'Season ends', hint: '' },
+		{
+			key: 'feedbackDeadline',
+			label: 'Feedback deadline',
+			hint: 'Guides’ end-of-season session feedback forms.'
+		}
+	];
+
 	const emptyForm = (): FormState => ({
 		name: '',
+		applicationDeadline: '',
+		reviewWindowClose: '',
 		startDate: '',
 		endDate: '',
-		reviewWindowOpen: '',
-		reviewWindowClose: '',
 		feedbackDeadline: ''
 	});
 
-	let createDialogOpen = $state(false);
-	let createForm = $state<FormState>(emptyForm());
-	let createError = $state('');
-	let createPending = $state(false);
-
-	let editDialogOpen = $state(false);
+	let dialogOpen = $state(false);
 	let editSeasonId = $state<Id<'seasons'> | null>(null);
-	let editForm = $state<FormState>(emptyForm());
-	let editError = $state('');
-	let editPending = $state(false);
+	let form = $state<FormState>(emptyForm());
+	let formError = $state('');
+	let pending = $state(false);
 
-	// Mirrors the server-side rules in src/convex/seasons.ts (validateSeasonFields).
-	const validate = (form: FormState): string | null => {
-		const startDate = fromLocalInputValue(form.startDate);
-		const endDate = fromLocalInputValue(form.endDate);
-		const reviewWindowOpen = fromLocalInputValue(form.reviewWindowOpen);
-		const reviewWindowClose = fromLocalInputValue(form.reviewWindowClose);
-		const feedbackDeadline = fromLocalInputValue(form.feedbackDeadline);
-
-		if (!form.name.trim()) return 'Name is required';
-		if (
-			[startDate, endDate, reviewWindowOpen, reviewWindowClose, feedbackDeadline].some((n) =>
-				Number.isNaN(n)
-			)
-		) {
-			return 'All five dates are required';
+	// Mirrors seasons.adminSaveSeason. Dates are YYYY-MM-DD strings, which compare in date order.
+	const validate = (value: FormState): string | null => {
+		if (!value.name.trim()) return 'Name is required';
+		if (fields.some((field) => !value[field.key])) return 'All five dates are required';
+		if (value.reviewWindowClose <= value.applicationDeadline) {
+			return 'The scoring deadline must be after applications close';
 		}
-		if (endDate <= startDate) return 'End date must be after start date';
-		if (reviewWindowClose <= reviewWindowOpen) {
-			return 'Review window close must be after review window open';
+		if (value.startDate <= value.reviewWindowClose) {
+			return 'The season must start after the scoring deadline';
 		}
-		if (feedbackDeadline <= endDate) return 'Feedback deadline must be after end date';
+		if (value.endDate <= value.startDate) return 'The season must end after it starts';
+		if (value.feedbackDeadline <= value.endDate) {
+			return 'The feedback deadline must be after the season ends';
+		}
 		return null;
 	};
 
 	const openCreateDialog = () => {
-		createForm = emptyForm();
-		createError = '';
-		createDialogOpen = true;
-	};
-
-	const submitCreate = async () => {
-		const error = validate(createForm);
-		if (error) {
-			createError = error;
-			return;
-		}
-		createPending = true;
-		createError = '';
-		try {
-			await convexClient.mutation(api.seasons.adminCreateSeason, {
-				name: createForm.name.trim(),
-				startDate: fromLocalInputValue(createForm.startDate),
-				endDate: fromLocalInputValue(createForm.endDate),
-				reviewWindowOpen: fromLocalInputValue(createForm.reviewWindowOpen),
-				reviewWindowClose: fromLocalInputValue(createForm.reviewWindowClose),
-				feedbackDeadline: fromLocalInputValue(createForm.feedbackDeadline)
-			});
-			createDialogOpen = false;
-		} catch (err) {
-			createError = err instanceof Error ? err.message : 'Failed to create season';
-		} finally {
-			createPending = false;
-		}
+		editSeasonId = null;
+		form = emptyForm();
+		formError = '';
+		dialogOpen = true;
 	};
 
 	const openEditDialog = (season: SeasonRow) => {
 		editSeasonId = season._id;
-		editForm = {
+		form = {
 			name: season.name,
-			startDate: toLocalInputValue(season.startDate),
-			endDate: toLocalInputValue(season.endDate),
-			reviewWindowOpen: toLocalInputValue(season.reviewWindowOpen),
-			reviewWindowClose: toLocalInputValue(season.reviewWindowClose),
-			feedbackDeadline: toLocalInputValue(season.feedbackDeadline)
+			applicationDeadline: toDateInputValue(season.applicationDeadline),
+			reviewWindowClose: toDateInputValue(season.reviewWindowClose),
+			startDate: toDateInputValue(season.startDate),
+			endDate: toDateInputValue(season.endDate),
+			feedbackDeadline: toDateInputValue(season.feedbackDeadline)
 		};
-		editError = '';
-		editDialogOpen = true;
+		formError = '';
+		dialogOpen = true;
 	};
 
-	const submitEdit = async () => {
-		if (!editSeasonId) return;
-		const error = validate(editForm);
+	const submit = async () => {
+		const error = validate(form);
 		if (error) {
-			editError = error;
+			formError = error;
 			return;
 		}
-		editPending = true;
-		editError = '';
+		pending = true;
+		formError = '';
 		try {
-			await convexClient.mutation(api.seasons.adminUpdateSeason, {
-				seasonId: editSeasonId,
-				name: editForm.name.trim(),
-				startDate: fromLocalInputValue(editForm.startDate),
-				endDate: fromLocalInputValue(editForm.endDate),
-				reviewWindowOpen: fromLocalInputValue(editForm.reviewWindowOpen),
-				reviewWindowClose: fromLocalInputValue(editForm.reviewWindowClose),
-				feedbackDeadline: fromLocalInputValue(editForm.feedbackDeadline)
+			await convexClient.mutation(api.seasons.adminSaveSeason, {
+				...(editSeasonId ? { seasonId: editSeasonId } : {}),
+				name: form.name.trim(),
+				applicationDeadline: form.applicationDeadline,
+				reviewWindowClose: form.reviewWindowClose,
+				startDate: form.startDate,
+				endDate: form.endDate,
+				feedbackDeadline: form.feedbackDeadline
 			});
-			editDialogOpen = false;
+			dialogOpen = false;
 		} catch (err) {
-			editError = err instanceof Error ? err.message : 'Failed to update season';
+			formError = err instanceof Error ? err.message : 'Failed to save season';
 		} finally {
-			editPending = false;
+			pending = false;
 		}
 	};
-
-	const formatDate = (ms: number) => new Date(ms).toLocaleString();
 </script>
 
 <div class="flex flex-col gap-4">
 	<div class="flex items-center justify-between">
 		<p class="text-sm text-neutral-500">
 			{seasons.length} season{seasons.length === 1 ? '' : 's'}. No delete — seasons are permanent
-			history.
+			history. Closing dates are 23:55 GMT.
 		</p>
 		<Button size="sm" onclick={openCreateDialog}>New season</Button>
 	</div>
@@ -184,10 +180,10 @@
 				<thead class="border-b border-neutral-200 text-neutral-500">
 					<tr>
 						<th class="px-3 py-2 font-medium">Name</th>
-						<th class="px-3 py-2 font-medium">Start</th>
-						<th class="px-3 py-2 font-medium">End</th>
-						<th class="px-3 py-2 font-medium">Review open</th>
-						<th class="px-3 py-2 font-medium">Review close</th>
+						<th class="px-3 py-2 font-medium">Applications close</th>
+						<th class="px-3 py-2 font-medium">Scoring deadline</th>
+						<th class="px-3 py-2 font-medium">Season starts</th>
+						<th class="px-3 py-2 font-medium">Season ends</th>
 						<th class="px-3 py-2 font-medium">Feedback deadline</th>
 						<th class="px-3 py-2"></th>
 					</tr>
@@ -196,10 +192,10 @@
 					{#each seasons as season (season._id)}
 						<tr class="border-b border-neutral-100 last:border-0">
 							<td class="px-3 py-2 font-medium">{season.name}</td>
+							<td class="px-3 py-2 text-neutral-600">{formatDate(season.applicationDeadline)}</td>
+							<td class="px-3 py-2 text-neutral-600">{formatDate(season.reviewWindowClose)}</td>
 							<td class="px-3 py-2 text-neutral-600">{formatDate(season.startDate)}</td>
 							<td class="px-3 py-2 text-neutral-600">{formatDate(season.endDate)}</td>
-							<td class="px-3 py-2 text-neutral-600">{formatDate(season.reviewWindowOpen)}</td>
-							<td class="px-3 py-2 text-neutral-600">{formatDate(season.reviewWindowClose)}</td>
 							<td class="px-3 py-2 text-neutral-600">{formatDate(season.feedbackDeadline)}</td>
 							<td class="px-3 py-2 text-right">
 								<Button size="sm" variant="outline" onclick={() => openEditDialog(season)}>
@@ -214,86 +210,37 @@
 	{/if}
 </div>
 
-<Dialog.Root bind:open={createDialogOpen}>
+<Dialog.Root bind:open={dialogOpen}>
 	<Dialog.Content>
 		<Dialog.Header>
-			<Dialog.Title>New season</Dialog.Title>
-			<Dialog.Description>All five dates are required.</Dialog.Description>
+			<Dialog.Title>{editSeasonId ? 'Edit season' : 'New season'}</Dialog.Title>
+			<Dialog.Description>
+				Pick dates only. Closing dates mean 23:55 GMT that day; the season starts at 00:00 GMT.
+			</Dialog.Description>
 		</Dialog.Header>
 		<div class="flex flex-col gap-3">
 			<label class="flex flex-col gap-1 text-sm">
 				Name
-				<Input bind:value={createForm.name} placeholder="Autumn 2026" />
+				<Input bind:value={form.name} placeholder="Winter 2026" />
 			</label>
-			<label class="flex flex-col gap-1 text-sm">
-				Start date
-				<Input type="datetime-local" bind:value={createForm.startDate} />
-			</label>
-			<label class="flex flex-col gap-1 text-sm">
-				End date
-				<Input type="datetime-local" bind:value={createForm.endDate} />
-			</label>
-			<label class="flex flex-col gap-1 text-sm">
-				Review window open
-				<Input type="datetime-local" bind:value={createForm.reviewWindowOpen} />
-			</label>
-			<label class="flex flex-col gap-1 text-sm">
-				Review window close
-				<Input type="datetime-local" bind:value={createForm.reviewWindowClose} />
-			</label>
-			<label class="flex flex-col gap-1 text-sm">
-				Feedback deadline
-				<Input type="datetime-local" bind:value={createForm.feedbackDeadline} />
-			</label>
-			{#if createError}
-				<p class="text-sm text-red-600">{createError}</p>
+			{#each fields as field (field.key)}
+				<label class="flex flex-col gap-1 text-sm">
+					{field.label}
+					<Input type="date" bind:value={form[field.key]} />
+					{#if field.hint}
+						<span class="text-xs text-neutral-500">{field.hint}</span>
+					{/if}
+				</label>
+			{/each}
+			{#if formError}
+				<p class="text-sm text-red-600">{formError}</p>
 			{/if}
 		</div>
 		<Dialog.Footer>
-			<Button variant="outline" onclick={() => (createDialogOpen = false)}>Cancel</Button>
-			<Button disabled={createPending} onclick={() => void submitCreate()}>Create</Button>
-		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
-
-<Dialog.Root bind:open={editDialogOpen}>
-	<Dialog.Content>
-		<Dialog.Header>
-			<Dialog.Title>Edit season</Dialog.Title>
-			<Dialog.Description>All five dates are required.</Dialog.Description>
-		</Dialog.Header>
-		<div class="flex flex-col gap-3">
-			<label class="flex flex-col gap-1 text-sm">
-				Name
-				<Input bind:value={editForm.name} />
-			</label>
-			<label class="flex flex-col gap-1 text-sm">
-				Start date
-				<Input type="datetime-local" bind:value={editForm.startDate} />
-			</label>
-			<label class="flex flex-col gap-1 text-sm">
-				End date
-				<Input type="datetime-local" bind:value={editForm.endDate} />
-			</label>
-			<label class="flex flex-col gap-1 text-sm">
-				Review window open
-				<Input type="datetime-local" bind:value={editForm.reviewWindowOpen} />
-			</label>
-			<label class="flex flex-col gap-1 text-sm">
-				Review window close
-				<Input type="datetime-local" bind:value={editForm.reviewWindowClose} />
-			</label>
-			<label class="flex flex-col gap-1 text-sm">
-				Feedback deadline
-				<Input type="datetime-local" bind:value={editForm.feedbackDeadline} />
-			</label>
-			{#if editError}
-				<p class="text-sm text-red-600">{editError}</p>
-			{/if}
-		</div>
-		<Dialog.Footer>
-			<Button variant="outline" onclick={() => (editDialogOpen = false)}>Cancel</Button>
-			<Button disabled={editPending} onclick={() => void submitEdit()}>Save</Button>
+			<Button variant="outline" onclick={() => (dialogOpen = false)}>Cancel</Button>
+			<Button disabled={pending} onclick={() => void submit()}>
+				{editSeasonId ? 'Save' : 'Create'}
+			</Button>
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>
