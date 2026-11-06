@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { api } from '$convex/_generated/api';
+	import type { Id } from '$convex/_generated/dataModel';
 	import { useStableQuery } from '$lib/convex/use-stable-query.svelte';
 	import { Badge } from '$lib/components/ui/badge';
 	import { routes } from '$lib/routes';
@@ -8,8 +9,33 @@
 	// lists. Each row links to the review page (./[applicationId]) where staff watch the video,
 	// accept/decline, and chat with the applicant. Decided applications stay listed because their
 	// chat deliberately remains open (CL-710 CEO review item 4).
-	const pipelineResponse = useStableQuery(api.admin.adminApplicationsPipeline, {});
+	//
+	// CL-778: filtered by season, server-side. 'current' (the default) is the season whose review
+	// window is open now, else the next one to open; the backend resolves it and echoes the
+	// resolved season back as `selectedSeason`. A season's list is its submitted applications whose
+	// "Season for review" is that season plus the incomplete ones started in it. 'none' lists
+	// applications without a season link so staff can place them.
+	type SeasonFilter = 'current' | 'all' | 'none' | Id<'seasons'>;
+	type SeasonOption = { seasonId: Id<'seasons'>; name: string; startDate: number };
+	let seasonFilter = $state<SeasonFilter>('current');
+	const pipelineResponse = useStableQuery(api.admin.adminApplicationsPipeline, () => ({
+		season: seasonFilter
+	}));
 	let pipeline = $derived(pipelineResponse.data ?? null);
+	let seasonOptions = $derived((pipeline?.seasons ?? []) as SeasonOption[]);
+	// The select shows the resolved season once 'current' has been answered.
+	let selectedSeason = $derived(
+		seasonFilter === 'current'
+			? ((pipeline?.selectedSeason as SeasonFilter | undefined) ?? '')
+			: seasonFilter
+	);
+	let selectedSeasonName = $derived(
+		selectedSeason === 'all'
+			? 'All seasons'
+			: selectedSeason === 'none'
+				? 'No season'
+				: (seasonOptions.find((season) => season.seasonId === selectedSeason)?.name ?? null)
+	);
 	let items = $derived(pipeline?.items ?? []);
 	let decidedItems = $derived(pipeline?.decidedItems ?? []);
 	// Decided applications' chats stay open, so replies can land there too — count both lists.
@@ -29,14 +55,57 @@
 	const statusOrder = ['incomplete', 'pending', 'interview', 'accepted', 'rejected'] as const;
 
 	const formatDate = (value: number) => new Date(value).toLocaleDateString();
+
+	const onSeasonChange = (event: Event) => {
+		seasonFilter = (event.currentTarget as HTMLSelectElement).value as SeasonFilter;
+	};
 </script>
+
+{#snippet seasonCell(item: {
+	status: string;
+	startedSeasonName: string | null;
+	reviewSeasonName: string | null;
+})}
+	<td class="px-3 py-2 text-xs text-neutral-600">
+		<p>
+			<span class="text-neutral-400">Started:</span>
+			{item.startedSeasonName ?? 'No season'}
+		</p>
+		{#if item.status !== 'incomplete'}
+			<p>
+				<span class="text-neutral-400">Review:</span>
+				{item.reviewSeasonName ?? 'No season'}
+			</p>
+		{/if}
+	</td>
+{/snippet}
 
 <div class="flex flex-col gap-6">
 	<div>
-		<h1 class="text-xl font-semibold">Applications</h1>
+		<div class="flex flex-wrap items-end justify-between gap-3">
+			<h1 class="text-xl font-semibold">Applications</h1>
+			<label class="flex items-center gap-2 text-sm text-neutral-600">
+				Season for review
+				<select
+					value={selectedSeason}
+					onchange={onSeasonChange}
+					class="rounded border border-neutral-300 bg-white px-2 py-1.5 text-sm text-neutral-900"
+				>
+					{#each seasonOptions as season (season.seasonId)}
+						<option value={season.seasonId}>{season.name}</option>
+					{/each}
+					<option value="none">No season</option>
+					<option value="all">All seasons</option>
+				</select>
+			</label>
+		</div>
 		<p class="mt-1 text-sm text-neutral-500">
 			Club application pipeline. Open an application to review it, decide, and chat with the
 			applicant.
+			{#if selectedSeasonName && selectedSeason !== 'all'}
+				Showing {selectedSeasonName}: applications submitted for review in this season, plus
+				incomplete ones started in it.
+			{/if}
 		</p>
 		{#if awaitingReplyCount > 0}
 			<p class="mt-2 text-sm font-medium text-neutral-900">
@@ -77,6 +146,7 @@
 								<th class="px-3 py-2">Name</th>
 								<th class="px-3 py-2">Applicant</th>
 								<th class="px-3 py-2">Status</th>
+								<th class="px-3 py-2">Season</th>
 								<th class="px-3 py-2">Chat</th>
 								<th class="px-3 py-2">Created</th>
 								<th class="px-3 py-2">Reviews</th>
@@ -107,6 +177,7 @@
 										{/if}
 									</td>
 									<td class="px-3 py-2 capitalize">{statusLabel[item.status]}</td>
+									{@render seasonCell(item)}
 									<td class="px-3 py-2">
 										{#if item.chatAwaitingReply}
 											<Badge>Reply waiting</Badge>
@@ -161,6 +232,7 @@
 								<th class="px-3 py-2">Name</th>
 								<th class="px-3 py-2">Applicant</th>
 								<th class="px-3 py-2">Decision</th>
+								<th class="px-3 py-2">Season</th>
 								<th class="px-3 py-2">Decided</th>
 								<th class="px-3 py-2">Chat</th>
 								<th class="px-3 py-2">Club</th>
@@ -194,6 +266,7 @@
 											{statusLabel[item.status]}
 										</Badge>
 									</td>
+									{@render seasonCell(item)}
 									<td class="px-3 py-2 text-neutral-600">
 										{item.decidedAt ? formatDate(item.decidedAt) : '—'}
 									</td>
