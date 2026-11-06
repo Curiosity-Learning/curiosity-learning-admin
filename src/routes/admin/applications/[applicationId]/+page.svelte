@@ -162,6 +162,38 @@
 		}
 	};
 
+	// CL-778: "Season started" (fixed: the season taking applications when the applicant began)
+	// and "Season for review" (the season taking applications when they submitted — editable here).
+	// Moving an application to another season does not re-score it: reviews, reviewer assignments
+	// and status stay (admin.adminSetApplicationReviewSeason). Ron's example: an applicant who
+	// missed her interview is moved to next season, where she is interviewed and decided. Seasons
+	// are listed by start date, newest first (Season 0 included).
+	type SeasonRow = { _id: Id<'seasons'>; name: string };
+	const seasonsResponse = useStableQuery(api.seasons.adminListSeasons, {});
+	let seasons = $derived((seasonsResponse.data ?? []) as SeasonRow[]);
+	let reviewSeasonPending = $state(false);
+	let reviewSeasonError = $state('');
+
+	const changeReviewSeason = async (event: Event) => {
+		const select = event.currentTarget as HTMLSelectElement;
+		const seasonId = select.value as Id<'seasons'>;
+		if (!seasonId || seasonId === detail?.reviewSeason?.seasonId) return;
+		reviewSeasonError = '';
+		reviewSeasonPending = true;
+		try {
+			await convexClient.mutation(api.admin.adminSetApplicationReviewSeason, {
+				applicationId,
+				seasonId
+			});
+		} catch (error) {
+			reviewSeasonError = error instanceof Error ? error.message : 'Failed to change the season';
+			// Put the select back on the saved season.
+			select.value = detail?.reviewSeason?.seasonId ?? '';
+		} finally {
+			reviewSeasonPending = false;
+		}
+	};
+
 	let actionError = $state('');
 	let actionPending = $state(false);
 
@@ -281,6 +313,41 @@
 								—
 							{/if}
 						</dd>
+						<dt class="text-neutral-500">Season started</dt>
+						<dd>{detail.startedSeason?.name ?? 'No season'}</dd>
+						<dt class="text-neutral-500">
+							<label for="review-season">Season for review</label>
+						</dt>
+						<dd>
+							{#if detail.status === 'incomplete'}
+								<span class="text-neutral-500">Set when the applicant submits</span>
+							{:else}
+								<select
+									id="review-season"
+									value={detail.reviewSeason?.seasonId ?? ''}
+									disabled={reviewSeasonPending || seasons.length === 0}
+									onchange={(event) => void changeReviewSeason(event)}
+									class="rounded border border-neutral-300 bg-white px-2 py-1 text-sm text-neutral-900"
+								>
+									{#if !detail.reviewSeason}
+										<option value="" disabled>No season — pick one</option>
+									{/if}
+									{#each seasons as season (season._id)}
+										<option value={season._id}>{season.name}</option>
+									{/each}
+								</select>
+								<p class="mt-1 text-xs text-neutral-500">
+									Moving it keeps its reviews, reviewers and status — it is not scored again.
+								</p>
+								{#if reviewSeasonError}
+									<p class="mt-1 text-xs text-red-700">{reviewSeasonError}</p>
+								{/if}
+							{/if}
+						</dd>
+						{#if detail.submittedAt}
+							<dt class="text-neutral-500">Submitted</dt>
+							<dd>{formatDate(detail.submittedAt)}</dd>
+						{/if}
 						<dt class="text-neutral-500">Location</dt>
 						<dd>{detail.location ?? '—'}</dd>
 						<dt class="text-neutral-500">Applicant role</dt>
