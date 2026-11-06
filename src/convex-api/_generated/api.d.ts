@@ -36,7 +36,6 @@ import type * as http from "../http.js";
 import type * as joinRequests from "../joinRequests.js";
 import type * as legalContent from "../legalContent.js";
 import type * as legalDocuments from "../legalDocuments.js";
-import type * as magicLinks from "../magicLinks.js";
 import type * as media from "../media.js";
 import type * as mediaModel from "../mediaModel.js";
 import type * as mediaModeration from "../mediaModeration.js";
@@ -108,7 +107,6 @@ declare const fullApi: ApiFromModules<{
   joinRequests: typeof joinRequests;
   legalContent: typeof legalContent;
   legalDocuments: typeof legalDocuments;
-  magicLinks: typeof magicLinks;
   media: typeof media;
   mediaModel: typeof mediaModel;
   mediaModeration: typeof mediaModeration;
