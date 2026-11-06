@@ -27,11 +27,21 @@
 		applicationDeadline?: number;
 	};
 
-	const NO_SEASON = 'none';
+	// Grouping and each-block keys are season ids (never names: two seasons may share a name),
+	// with this fixed sentinel for applications without a season link.
+	const NO_SEASON = '__no_season__';
 	const NO_SEASON_LABEL = 'No season';
 
 	const response = useStableQuery(api.admin.adminAnalyticsApplications, {});
 	const seasonsResponse = useStableQuery(api.seasons.adminListSeasons, {});
+
+	const formatDate = (value: number) =>
+		new Date(value).toLocaleDateString(undefined, {
+			month: 'short',
+			day: 'numeric',
+			year: 'numeric',
+			timeZone: 'UTC'
+		});
 
 	// Count axes: whole numbers only.
 	const intTick = (value: number) => (Number.isInteger(value) ? String(value) : '');
@@ -39,16 +49,34 @@
 	// adminListSeasons: newest start first.
 	let seasons = $derived((seasonsResponse.data ?? []) as SeasonRow[]);
 	let chronologicalSeasons = $derived([...seasons].sort((a, b) => a.startDate - b.startDate));
+	// Display name per season id; a name shared by several seasons gets its start date added so
+	// chart bars and table rows stay distinguishable.
+	let seasonDisplayNames = $derived.by(() => {
+		const nameCounts = new SvelteMap<string, number>();
+		for (const season of seasons)
+			nameCounts.set(season.name, (nameCounts.get(season.name) ?? 0) + 1);
+		const names = new SvelteMap<string, string>();
+		for (const season of seasons) {
+			names.set(
+				season._id,
+				(nameCounts.get(season.name) ?? 0) > 1
+					? `${season.name} (${formatDate(season.startDate)})`
+					: season.name
+			);
+		}
+		return names;
+	});
 
 	const seasonLabel = (key: string) =>
-		key === NO_SEASON
-			? NO_SEASON_LABEL
-			: (seasons.find((season) => season._id === key)?.name ?? 'Unknown season');
+		key === NO_SEASON ? NO_SEASON_LABEL : (seasonDisplayNames.get(key) ?? 'Unknown season');
 
 	// Season picker: every season (newest first), plus "No season" when some application has no
 	// started season.
 	let pickerOptions = $derived.by(() => {
-		const options = seasons.map((season) => ({ key: season._id as string, label: season.name }));
+		const options = seasons.map((season) => ({
+			key: season._id as string,
+			label: seasonDisplayNames.get(season._id) ?? season.name
+		}));
 		if (rows?.some((row) => !row.startedSeasonId)) {
 			options.push({ key: NO_SEASON, label: NO_SEASON_LABEL });
 		}
@@ -80,13 +108,6 @@
 			: []
 	);
 
-	const formatDate = (value: number) =>
-		new Date(value).toLocaleDateString(undefined, {
-			month: 'short',
-			day: 'numeric',
-			year: 'numeric',
-			timeZone: 'UTC'
-		});
 	let selectedDescription = $derived(
 		selectedSeason
 			? [
@@ -109,7 +130,7 @@
 			counts.set(slug, (counts.get(slug) ?? 0) + 1);
 		}
 		return [...counts.entries()]
-			.map(([slug, count]) => ({ label: referralSourceLabel(slug), count }))
+			.map(([slug, count]) => ({ key: slug, label: referralSourceLabel(slug), count }))
 			.sort((a, b) => b.count - a.count);
 	});
 	let referralAnswered = $derived(selectedRows.filter((row) => row.referralSource).length);
@@ -127,13 +148,17 @@
 		}
 		const ordered = chronologicalSeasons
 			.filter((season) => counts.has(season._id))
-			.map((season) => ({ label: season.name, count: counts.get(season._id) ?? 0 }));
+			.map((season) => ({
+				key: season._id as string,
+				label: seasonDisplayNames.get(season._id) ?? season.name,
+				count: counts.get(season._id) ?? 0
+			}));
 		const known = new Set<string>(chronologicalSeasons.map((season) => season._id));
 		const unknown = [...counts.entries()]
 			.filter(([key]) => key !== NO_SEASON && !known.has(key))
 			.reduce((sum, [, count]) => sum + count, 0);
 		const none = (counts.get(NO_SEASON) ?? 0) + unknown;
-		if (none > 0) ordered.push({ label: NO_SEASON_LABEL, count: none });
+		if (none > 0) ordered.push({ key: NO_SEASON, label: NO_SEASON_LABEL, count: none });
 		return ordered;
 	};
 
@@ -250,7 +275,7 @@
 							></thead
 						>
 						<tbody>
-							{#each referralData as row (row.label)}
+							{#each referralData as row (row.key)}
 								<tr><td class="pr-6">{row.label}</td><td>{row.count}</td></tr>
 							{/each}
 						</tbody>
@@ -296,7 +321,7 @@
 							></thead
 						>
 						<tbody>
-							{#each startedPerSeasonData as row (row.label)}
+							{#each startedPerSeasonData as row (row.key)}
 								<tr><td class="pr-6">{row.label}</td><td>{row.count}</td></tr>
 							{/each}
 						</tbody>
@@ -330,7 +355,7 @@
 							></thead
 						>
 						<tbody>
-							{#each reviewPerSeasonData as row (row.label)}
+							{#each reviewPerSeasonData as row (row.key)}
 								<tr><td class="pr-6">{row.label}</td><td>{row.count}</td></tr>
 							{/each}
 						</tbody>
