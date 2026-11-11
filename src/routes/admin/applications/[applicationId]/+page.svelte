@@ -402,14 +402,32 @@
 								<li class="rounded border border-neutral-200 p-3 text-sm">
 									<div class="flex flex-wrap items-center justify-between gap-2">
 										<p class="font-medium">{review.reviewerName}</p>
-										<p class="text-neutral-500">
-											Score {review.score.toFixed(1)}
-											{#if review.principlesScore !== null && review.safetyScore !== null}
-												(principles {review.principlesScore} · safety {review.safetyScore})
-											{/if}
-										</p>
+										<!-- CL-780: reviews score Alignment / Motivation / Readiness 1-5 (the
+										reviewing guide); `score` is their average. Older reviews have the 0-10
+										principles/safety pair instead. -->
+										{#if review.alignmentScore !== null && review.alignmentScore !== undefined}
+											<p class="text-neutral-500 tabular-nums">
+												Average {review.score.toFixed(1)} / 5 (alignment {review.alignmentScore}
+												· motivation {review.motivationScore} · readiness {review.readinessScore})
+											</p>
+										{:else}
+											<p class="text-neutral-500 tabular-nums">
+												Score {review.score.toFixed(1)} / 10
+												{#if review.principlesScore !== null && review.safetyScore !== null}
+													(principles {review.principlesScore} · safety {review.safetyScore}, old
+													scale)
+												{/if}
+											</p>
+										{/if}
 									</div>
-									<p class="mt-1 text-neutral-700">{review.note}</p>
+									{#if review.alignmentScore !== null && review.alignmentScore !== undefined}
+										{#if review.note}
+											<p class="mt-1 text-neutral-500">To clarify in the interview</p>
+											<p class="text-neutral-700">{review.note}</p>
+										{/if}
+									{:else}
+										<p class="mt-1 text-neutral-700">{review.note}</p>
+									{/if}
 								</li>
 							{/each}
 						</ul>
