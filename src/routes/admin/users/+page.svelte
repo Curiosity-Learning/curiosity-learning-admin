@@ -8,17 +8,27 @@
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import type { Id } from '$convex/_generated/dataModel';
+	import UserDetailsDialog from './user-details-dialog.svelte';
 
 	// CL-730 (PRD 6.14.7), ported verbatim from the main repo's src/routes/admin/users/+page.svelte
 	// (i18n removed — English-only, see README). Username search + suspend/unsuspend. "Remove
 	// user" is out of scope for v1 (full deletion is GDPR-workflows scope, CL-741) — suspension is
 	// the only action offered, labeled honestly as "Suspend", not "Remove".
-	let usernameQuery = $state('');
+	// CL-782: search by username, name or email; each result shows its email and opens a
+	// details dialog with parent/children contacts.
+	let userQuery = $state('');
 	const convexClient = useConvexClient();
 
-	const usersResponse = useStableQuery(api.moderation.searchUsers, () =>
-		usernameQuery.trim() ? { usernamePrefix: usernameQuery.trim() } : 'skip'
+	const usersResponse = useStableQuery(api.adminUsers.searchUsers, () =>
+		userQuery.trim() ? { search: userQuery.trim() } : 'skip'
 	);
+
+	let detailsOpen = $state(false);
+	let detailsProfileId = $state<Id<'profiles'> | null>(null);
+	const openDetails = (profileId: Id<'profiles'>) => {
+		detailsProfileId = profileId;
+		detailsOpen = true;
+	};
 	let users = $derived(usersResponse.data ?? []);
 
 	let errorMessage = $state('');
@@ -123,8 +133,8 @@
 	<div>
 		<h1 class="text-xl font-semibold">Users</h1>
 		<p class="mt-1 text-sm text-neutral-500">
-			Search by username. "Suspend" blocks the account platform-wide; full deletion is out of scope
-			for v1 (see CL-741).
+			Search by username, name or email (a parent's email also finds their children). "Suspend"
+			blocks the account platform-wide; full deletion is out of scope for v1 (see CL-741).
 		</p>
 	</div>
 
@@ -135,11 +145,15 @@
 	{/if}
 
 	<div class="flex flex-col gap-3">
-		<Input placeholder="Search by username..." bind:value={usernameQuery} class="max-w-sm" />
+		<Input
+			placeholder="Search by username, name or email..."
+			bind:value={userQuery}
+			class="max-w-sm"
+		/>
 
 		{#if usersResponse.isLoading}
 			<p class="text-sm text-neutral-500">Searching...</p>
-		{:else if usernameQuery.trim() && users.length === 0}
+		{:else if userQuery.trim() && users.length === 0}
 			<p class="text-sm text-neutral-500">No matching users.</p>
 		{:else if users.length > 0}
 			<ul class="flex flex-col gap-2">
@@ -147,10 +161,18 @@
 					<li
 						class="flex items-center justify-between rounded-lg border border-neutral-200 bg-white p-3"
 					>
-						<div class="flex items-center gap-2">
+						<div class="flex min-w-0 flex-wrap items-center gap-2">
 							<span class="text-sm font-medium">{displayName(user)}</span>
 							{#if user.username}
 								<span class="text-xs text-neutral-400">@{user.username}</span>
+							{/if}
+							{#if user.isChildAccount}
+								<Badge variant="outline">child</Badge>
+							{:else if user.email}
+								<a
+									class="text-xs break-all text-blue-700 underline-offset-2 hover:underline"
+									href={`mailto:${user.email}`}>{user.email}</a
+								>
 							{/if}
 							{#if user.globalRole === 'admin'}
 								<Badge variant="secondary">admin</Badge>
@@ -159,7 +181,10 @@
 								<Badge variant="destructive">suspended</Badge>
 							{/if}
 						</div>
-						<div class="flex items-center gap-2">
+						<div class="flex shrink-0 items-center gap-2">
+							<Button size="sm" variant="outline" onclick={() => openDetails(user.profileId)}>
+								Details
+							</Button>
 							{#if user.suspendedAt}
 								<Button
 									size="sm"
@@ -208,6 +233,8 @@
 		{/if}
 	</div>
 </div>
+
+<UserDetailsDialog profileId={detailsProfileId} bind:open={detailsOpen} />
 
 <Dialog.Root bind:open={suspendDialogOpen}>
 	<Dialog.Content>
