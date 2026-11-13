@@ -256,6 +256,33 @@
 			day: 'numeric'
 		});
 
+	// CL-796: completion reminders this application has had (main repo applicationReminders.ts).
+	// Only sent ones, oldest first; an empty list reads "None sent".
+	const reminderLabels = [
+		['started', 'One hour after starting'],
+		['closingSoon', 'Applications close soon (sent by hand)'],
+		['weekBefore', 'A week before the deadline'],
+		['dayBefore', 'Last day before the deadline']
+	] as const;
+	const formatDateTime = (value: number) =>
+		new Date(value).toLocaleString(undefined, {
+			year: 'numeric',
+			month: 'short',
+			day: 'numeric',
+			hour: '2-digit',
+			minute: '2-digit'
+		});
+	let remindersSent = $derived(
+		detail?.remindersSent
+			? reminderLabels
+					.flatMap(([key, label]) => {
+						const sentAt = detail?.remindersSent?.[key];
+						return typeof sentAt === 'number' ? [{ key, label, sentAt }] : [];
+					})
+					.sort((a, b) => a.sentAt - b.sentAt)
+			: []
+	);
+
 	const formatTime = (value: number) =>
 		new Date(value).toLocaleString(undefined, {
 			month: 'short',
@@ -348,6 +375,21 @@
 							<dt class="text-neutral-500">Submitted</dt>
 							<dd>{formatDate(detail.submittedAt)}</dd>
 						{/if}
+						<dt class="text-neutral-500">Reminders sent</dt>
+						<dd>
+							{#if remindersSent.length === 0}
+								None sent
+							{:else}
+								<ul class="flex flex-col gap-0.5">
+									{#each remindersSent as reminder (reminder.key)}
+										<li>
+											{formatDateTime(reminder.sentAt)}
+											<span class="text-neutral-500">· {reminder.label}</span>
+										</li>
+									{/each}
+								</ul>
+							{/if}
+						</dd>
 						<dt class="text-neutral-500">Location</dt>
 						<dd>{detail.location ?? '—'}</dd>
 						<dt class="text-neutral-500">Applicant role</dt>
