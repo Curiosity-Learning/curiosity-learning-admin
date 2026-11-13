@@ -7,6 +7,9 @@
 	// GMT that day, the season start is 00:00 GMT. Scoring opens the moment applications close, so
 	// there is no "review open" input. People apply all year; a season's applications open when
 	// the previous season's close.
+	//
+	// CL-777: a deadline can be extended ("Extended to", optional). Applications then really close
+	// on the extended date, and scoring starts there; the table shows "31 Oct → 7 Nov".
 	import { api } from '$convex/_generated/api';
 	import { useConvexClient } from 'convex-svelte';
 	import { useStableQuery } from '$lib/convex/use-stable-query.svelte';
@@ -19,6 +22,7 @@
 		_id: Id<'seasons'>;
 		name: string;
 		applicationDeadline?: number;
+		applicationDeadlineExtendedTo?: number;
 		startDate: number;
 		endDate: number;
 		reviewWindowOpen: number;
@@ -44,20 +48,32 @@
 					timeZone: 'UTC'
 				});
 
+	// "31 Oct", for the "31 Oct → 7 Nov" cell.
+	const formatShortDate = (ms: number) =>
+		new Date(ms).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+
 	type FormState = {
 		name: string;
 		applicationDeadline: string;
+		applicationDeadlineExtendedTo: string;
 		reviewWindowClose: string;
 		startDate: string;
 		endDate: string;
 		feedbackDeadline: string;
 	};
 
-	const fields: Array<{ key: Exclude<keyof FormState, 'name'>; label: string; hint: string }> = [
+	type DateKey = Exclude<keyof FormState, 'name'>;
+	const fields: Array<{ key: DateKey; label: string; hint: string; optional?: boolean }> = [
 		{
 			key: 'applicationDeadline',
 			label: 'Applications close',
 			hint: 'Until 23:55 GMT. The next season’s applications open at that moment.'
+		},
+		{
+			key: 'applicationDeadlineExtendedTo',
+			label: 'Extended to (optional)',
+			hint: 'Only when the deadline is extended. Applications then count for this season until 23:55 GMT on this date, and scoring starts then.',
+			optional: true
 		},
 		{
 			key: 'reviewWindowClose',
@@ -80,6 +96,7 @@
 	const emptyForm = (): FormState => ({
 		name: '',
 		applicationDeadline: '',
+		applicationDeadlineExtendedTo: '',
 		reviewWindowClose: '',
 		startDate: '',
 		endDate: '',
@@ -95,9 +112,17 @@
 	// Mirrors seasons.adminSaveSeason. Dates are YYYY-MM-DD strings, which compare in date order.
 	const validate = (value: FormState): string | null => {
 		if (!value.name.trim()) return 'Name is required';
-		if (fields.some((field) => !value[field.key])) return 'All five dates are required';
-		if (value.reviewWindowClose <= value.applicationDeadline) {
-			return 'The scoring deadline must be after applications close';
+		if (fields.some((field) => !field.optional && !value[field.key])) {
+			return 'All five dates are required';
+		}
+		const extendedTo = value.applicationDeadlineExtendedTo;
+		if (extendedTo && extendedTo <= value.applicationDeadline) {
+			return 'The extended date must be after the normal closing date';
+		}
+		if (value.reviewWindowClose <= (extendedTo || value.applicationDeadline)) {
+			return extendedTo
+				? 'The scoring deadline must be after the extended closing date'
+				: 'The scoring deadline must be after applications close';
 		}
 		if (value.startDate <= value.reviewWindowClose) {
 			return 'The season must start after the scoring deadline';
@@ -121,6 +146,7 @@
 		form = {
 			name: season.name,
 			applicationDeadline: toDateInputValue(season.applicationDeadline),
+			applicationDeadlineExtendedTo: toDateInputValue(season.applicationDeadlineExtendedTo),
 			reviewWindowClose: toDateInputValue(season.reviewWindowClose),
 			startDate: toDateInputValue(season.startDate),
 			endDate: toDateInputValue(season.endDate),
@@ -143,6 +169,8 @@
 				...(editSeasonId ? { seasonId: editSeasonId } : {}),
 				name: form.name.trim(),
 				applicationDeadline: form.applicationDeadline,
+				// Empty removes an extension.
+				applicationDeadlineExtendedTo: form.applicationDeadlineExtendedTo,
 				reviewWindowClose: form.reviewWindowClose,
 				startDate: form.startDate,
 				endDate: form.endDate,
@@ -192,7 +220,17 @@
 					{#each seasons as season (season._id)}
 						<tr class="border-b border-neutral-100 last:border-0">
 							<td class="px-3 py-2 font-medium">{season.name}</td>
-							<td class="px-3 py-2 text-neutral-600">{formatDate(season.applicationDeadline)}</td>
+							<td class="px-3 py-2 text-neutral-600">
+								{#if season.applicationDeadline !== undefined && season.applicationDeadlineExtendedTo !== undefined}
+									<span title="Extended from {formatDate(season.applicationDeadline)}">
+										{formatShortDate(season.applicationDeadline)} → {formatDate(
+											season.applicationDeadlineExtendedTo
+										)}
+									</span>
+								{:else}
+									{formatDate(season.applicationDeadline)}
+								{/if}
+							</td>
 							<td class="px-3 py-2 text-neutral-600">{formatDate(season.reviewWindowClose)}</td>
 							<td class="px-3 py-2 text-neutral-600">{formatDate(season.startDate)}</td>
 							<td class="px-3 py-2 text-neutral-600">{formatDate(season.endDate)}</td>
