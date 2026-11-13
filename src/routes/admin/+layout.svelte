@@ -60,6 +60,7 @@
 		{ href: routes.adminInterest, label: 'Interest' },
 		{ href: routes.adminModeration, label: 'Moderation' },
 		{ href: routes.adminSeasonsBooklet, label: 'Seasons & Booklet' },
+		{ href: routes.adminReviewSettings, label: 'Review settings' },
 		{ href: routes.adminUsers, label: 'Users' },
 		{ href: routes.adminAdmins, label: 'Admins' }
 	];
