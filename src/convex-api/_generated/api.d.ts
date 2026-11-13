@@ -9,6 +9,7 @@
  */
 
 import type * as admin from "../admin.js";
+import type * as adminForms from "../adminForms.js";
 import type * as adminInvites from "../adminInvites.js";
 import type * as adminUsers from "../adminUsers.js";
 import type * as applicationReminders from "../applicationReminders.js";
@@ -19,6 +20,7 @@ import type * as chat from "../chat.js";
 import type * as chatEmail from "../chatEmail.js";
 import type * as chatModel from "../chatModel.js";
 import type * as childAccounts from "../childAccounts.js";
+import type * as childEmailVerification from "../childEmailVerification.js";
 import type * as childSignup from "../childSignup.js";
 import type * as clubApplications from "../clubApplications.js";
 import type * as clubApplicationsNode from "../clubApplicationsNode.js";
@@ -37,6 +39,7 @@ import type * as http from "../http.js";
 import type * as joinRequests from "../joinRequests.js";
 import type * as legalContent from "../legalContent.js";
 import type * as legalDocuments from "../legalDocuments.js";
+import type * as magicLinks from "../magicLinks.js";
 import type * as media from "../media.js";
 import type * as mediaModel from "../mediaModel.js";
 import type * as mediaModeration from "../mediaModeration.js";
@@ -48,6 +51,7 @@ import type * as mediaStorage from "../mediaStorage.js";
 import type * as moderation from "../moderation.js";
 import type * as moderationNode from "../moderationNode.js";
 import type * as monitoring from "../monitoring.js";
+import type * as notificationRouting from "../notificationRouting.js";
 import type * as notifications from "../notifications.js";
 import type * as notificationsModel from "../notificationsModel.js";
 import type * as parentAccounts from "../parentAccounts.js";
@@ -68,6 +72,7 @@ import type * as reviewAssignmentModel from "../reviewAssignmentModel.js";
 import type * as roles from "../roles.js";
 import type * as scheduleModel from "../scheduleModel.js";
 import type * as seasons from "../seasons.js";
+import type * as sessionFreshness from "../sessionFreshness.js";
 import type * as sessions from "../sessions.js";
 import type * as updateComments from "../updateComments.js";
 import type * as updates from "../updates.js";
@@ -81,6 +86,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   admin: typeof admin;
+  adminForms: typeof adminForms;
   adminInvites: typeof adminInvites;
   adminUsers: typeof adminUsers;
   applicationReminders: typeof applicationReminders;
@@ -91,6 +97,7 @@ declare const fullApi: ApiFromModules<{
   chatEmail: typeof chatEmail;
   chatModel: typeof chatModel;
   childAccounts: typeof childAccounts;
+  childEmailVerification: typeof childEmailVerification;
   childSignup: typeof childSignup;
   clubApplications: typeof clubApplications;
   clubApplicationsNode: typeof clubApplicationsNode;
@@ -109,6 +116,7 @@ declare const fullApi: ApiFromModules<{
   joinRequests: typeof joinRequests;
   legalContent: typeof legalContent;
   legalDocuments: typeof legalDocuments;
+  magicLinks: typeof magicLinks;
   media: typeof media;
   mediaModel: typeof mediaModel;
   mediaModeration: typeof mediaModeration;
@@ -120,6 +128,7 @@ declare const fullApi: ApiFromModules<{
   moderation: typeof moderation;
   moderationNode: typeof moderationNode;
   monitoring: typeof monitoring;
+  notificationRouting: typeof notificationRouting;
   notifications: typeof notifications;
   notificationsModel: typeof notificationsModel;
   parentAccounts: typeof parentAccounts;
@@ -140,6 +149,7 @@ declare const fullApi: ApiFromModules<{
   roles: typeof roles;
   scheduleModel: typeof scheduleModel;
   seasons: typeof seasons;
+  sessionFreshness: typeof sessionFreshness;
   sessions: typeof sessions;
   updateComments: typeof updateComments;
   updates: typeof updates;
