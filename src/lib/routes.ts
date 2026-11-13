@@ -10,6 +10,7 @@ export const routes = {
 	adminInterest: '/admin/interest',
 	adminModeration: '/admin/moderation',
 	adminSeasonsBooklet: '/admin/seasons-booklet',
+	adminFeedbackForms: '/admin/feedback-forms',
 	adminUsers: '/admin/users',
 	adminAdmins: '/admin/admins',
 	adminLeaderInvites: '/admin/leader-invites'
